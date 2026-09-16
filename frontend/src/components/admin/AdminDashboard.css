@@ -1,0 +1,862 @@
+/* ==========================================================================
+   ProjectNexus Admin Dashboard (Institutional Governance Overview)
+   Enterprise SaaS Visual Polish (Linear / Notion caliber design system)
+   ========================================================================== */
+
+/* Layout Shell */
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background-color: #F8FAFC;
+  color: #0F172A;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   1. SIDEBAR (Dark #0F172A)
+   ========================================================================== */
+.admin-sidebar {
+  width: 260px;
+  background-color: #0F172A;
+  color: #94A3B8;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-right: 1px solid #1E293B;
+  user-select: none;
+  z-index: 30;
+  box-sizing: border-box;
+}
+
+.admin-sidebar-header {
+  height: 72px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #1E293B;
+  box-sizing: border-box;
+}
+
+.admin-sidebar-logo-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.admin-sidebar-logo-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.2;
+}
+
+.admin-sidebar-logo-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(37, 99, 235, 0.25);
+  color: #93C5FD;
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(147, 197, 253, 0.25);
+}
+
+.admin-sidebar-logo-sub {
+  font-size: 11px;
+  color: #64748B;
+  font-weight: 500;
+}
+
+/* Nav Menu */
+.admin-sidebar-nav {
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.admin-sidebar-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748B;
+  padding: 16px 12px 6px 12px;
+}
+
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #94A3B8;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.admin-nav-item:hover {
+  color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.admin-nav-item.active {
+  color: #FFFFFF;
+  background-color: #2563EB;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+}
+
+.admin-nav-item-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-nav-count-badge {
+  font-size: 11px;
+  font-family: monospace;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #E2E8F0;
+}
+
+/* Sidebar Footer */
+.admin-sidebar-footer {
+  padding: 18px 16px;
+  border-top: 1px solid #1E293B;
+  background-color: #0B1120;
+  box-sizing: border-box;
+}
+
+.admin-mode-pill {
+  padding: 10px 14px;
+  background-color: #1E293B;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-mode-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #E2E8F0;
+  line-height: 1.2;
+}
+
+.admin-mode-sub {
+  font-size: 10.5px;
+  color: #64748B;
+}
+
+/* ==========================================================================
+   2. MAIN WORKSPACE AREA & TOP BAR
+   ========================================================================== */
+.admin-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background-color: #F8FAFC;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+/* Top Bar */
+.admin-topbar {
+  height: 72px;
+  background-color: #FFFFFF;
+  border-bottom: 1px solid #E2E8F0;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 20;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-sizing: border-box;
+}
+
+/* Search Bar with 44px height */
+.admin-search-wrapper {
+  position: relative;
+  width: 360px;
+  max-width: 100%;
+}
+
+.admin-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94A3B8;
+  pointer-events: none;
+}
+
+.admin-search-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 16px 0 42px;
+  font-size: 13px;
+  border-radius: 12px;
+  border: 1.5px solid #E2E8F0;
+  background-color: #F8FAFC;
+  color: #0F172A;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.admin-search-input:focus {
+  border-color: #2563EB;
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3.5px rgba(37, 99, 235, 0.12);
+}
+
+.admin-search-input::placeholder {
+  color: #94A3B8;
+}
+
+/* Top Bar Actions with consistent 16-20px gaps */
+.admin-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.admin-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid #E2E8F0;
+  background-color: #FFFFFF;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.admin-icon-btn:hover {
+  background-color: #F1F5F9;
+  color: #0F172A;
+  border-color: #CBD5E1;
+}
+
+.admin-notif-dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 7px;
+  height: 7px;
+  background-color: #EF4444;
+  border-radius: 50%;
+  border: 1.5px solid #FFFFFF;
+}
+
+.admin-profile-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  background-color: #FFFFFF;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-profile-pill:hover {
+  background-color: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
+.admin-profile-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background-color: #2563EB;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.admin-profile-info {
+  text-align: left;
+}
+
+.admin-profile-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0F172A;
+  line-height: 1.2;
+}
+
+.admin-profile-role {
+  font-size: 10.5px;
+  color: #64748B;
+}
+
+/* Primary "+ Create New Project" Button with clear padding */
+.admin-create-project-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #FFFFFF;
+  background-color: #2563EB;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.admin-create-project-btn:hover {
+  background-color: #1D4ED8;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.38);
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   3. CONTENT AREA — CONSISTENT 32px PADDING & 24px GAPS
+   ========================================================================== */
+.admin-content-container {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 1600px;
+  box-sizing: border-box;
+  margin: 0 auto;
+}
+
+/* Page Header Block */
+.admin-page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-page-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+
+.admin-page-subtitle {
+  font-size: 13px;
+  color: #64748B;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ==========================================================================
+   4. KPI CARDS ROW (UNIFORM GRID, SAME HEIGHT, EQUAL PADDING)
+   ========================================================================== */
+.admin-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 18px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-kpi-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.02);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 140px;
+}
+
+.admin-kpi-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.07);
+  transform: translateY(-2px);
+}
+
+.admin-kpi-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.admin-kpi-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.admin-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748B;
+}
+
+.admin-kpi-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0F172A;
+  line-height: 1.1;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.admin-kpi-value.text-red {
+  color: #DC2626;
+}
+
+.admin-kpi-subtext {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748B;
+}
+
+/* ==========================================================================
+   5. TWO-COLUMN SPLIT (CRITICAL PROJECTS & ACTIVITY FEED)
+   ========================================================================== */
+.admin-split-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  width: 100%;
+  align-items: start;
+  box-sizing: border-box;
+}
+
+/* White Panel Container with 24px Internal Padding & Shadow */
+.admin-panel {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  box-sizing: border-box;
+}
+
+.admin-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.admin-panel-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.admin-panel-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0F172A;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.admin-panel-desc {
+  font-size: 12.5px;
+  color: #64748B;
+  margin: 0;
+}
+
+.admin-panel-action-link {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #2563EB;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.admin-panel-action-link:hover {
+  color: #1D4ED8;
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   6. TABLE STYLES & PILL BADGES
+   ========================================================================== */
+.admin-table-wrapper {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  table-layout: fixed;
+}
+
+.admin-table th {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748B;
+  padding: 12px 16px;
+  border-bottom: 1.5px solid #E2E8F0;
+  background-color: #F8FAFC;
+  white-space: nowrap;
+}
+
+.admin-table th:first-child,
+.admin-table td:first-child {
+  width: 36%;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+.admin-table th:nth-child(2),
+.admin-table td:nth-child(2) {
+  width: 12%;
+  white-space: nowrap;
+}
+
+.admin-table th:nth-child(3),
+.admin-table td:nth-child(3) {
+  width: 12%;
+  white-space: nowrap;
+}
+
+.admin-table th:nth-child(4),
+.admin-table td:nth-child(4) {
+  width: 17%;
+  white-space: nowrap;
+}
+
+.admin-table th:nth-child(5),
+.admin-table td:nth-child(5) {
+  width: 13%;
+  white-space: nowrap;
+}
+
+.admin-table th:last-child,
+.admin-table td:last-child {
+  width: 10%;
+  text-align: right;
+  white-space: nowrap;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.admin-table td {
+  padding: 15px 16px;
+  font-size: 13px;
+  color: #334155;
+  border-bottom: 1px solid #F1F5F9;
+  vertical-align: middle;
+  transition: background-color 0.15s ease;
+}
+
+.admin-table tr:hover td {
+  background-color: #F8FAFC;
+  cursor: pointer;
+}
+
+.admin-table-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0F172A;
+  margin-bottom: 4px;
+  line-height: 1.35;
+  word-break: normal;
+}
+
+.admin-table-meta {
+  font-size: 11.5px;
+  color: #64748B;
+  font-family: monospace;
+}
+
+/* Unified Pill Badges with Soft Background Fills */
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+/* Category Badges */
+.admin-badge-software {
+  background-color: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+
+.admin-badge-iot {
+  background-color: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+}
+
+.admin-badge-hardware {
+  background-color: #FFFBEB;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+/* Status Badges */
+.admin-badge-active {
+  background-color: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #DBEAFE;
+}
+
+.admin-badge-at-risk {
+  background-color: #FEF2F2;
+  color: #B91C1C;
+  border: 1px solid #FECACA;
+}
+
+.admin-badge-pending {
+  background-color: #FFFBEB;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+/* Health Single Pill (dot + label + %) */
+.admin-health-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  min-width: 110px;
+  white-space: nowrap;
+}
+
+.admin-health-pill.healthy {
+  background-color: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+}
+
+.admin-health-pill.moderate {
+  background-color: #FFFBEB;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+.admin-health-pill.critical {
+  background-color: #FEF2F2;
+  color: #B91C1C;
+  border: 1px solid #FECACA;
+}
+
+.admin-health-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.admin-health-dot.healthy {
+  background-color: #10B981;
+}
+
+.admin-health-dot.moderate {
+  background-color: #F59E0B;
+}
+
+.admin-health-dot.critical {
+  background-color: #EF4444;
+}
+
+/* Inspect Action Button with Hover Affordance */
+.admin-inspect-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2563EB;
+  background-color: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.admin-inspect-btn:hover {
+  background-color: #2563EB;
+  color: #FFFFFF;
+  border-color: #2563EB;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+}
+
+/* ==========================================================================
+   7. RECENT ACTIVITY FEED (Spacious & Clean Dividers)
+   ========================================================================== */
+.admin-activity-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.admin-activity-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.admin-activity-item:first-child {
+  padding-top: 0;
+}
+
+.admin-activity-icon-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.admin-activity-icon-badge.info {
+  background-color: #EFF6FF;
+  color: #2563EB;
+}
+
+.admin-activity-icon-badge.success {
+  background-color: #ECFDF5;
+  color: #10B981;
+}
+
+.admin-activity-icon-badge.warning {
+  background-color: #FEF2F2;
+  color: #EF4444;
+}
+
+.admin-activity-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-activity-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0F172A;
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+
+.admin-activity-desc {
+  font-size: 12px;
+  color: #64748B;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.admin-activity-meta {
+  font-size: 11px;
+  color: #94A3B8;
+  font-family: monospace;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .admin-kpi-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .admin-split-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .admin-content-container {
+    padding: 20px 16px;
+  }
+  .admin-topbar {
+    padding: 0 16px;
+  }
+  .admin-search-wrapper {
+    width: 200px;
+  }
+}

@@ -8,7 +8,9 @@ import {
   ExternalLink,
   ChevronDown,
   Sparkles,
-  Home
+  Home,
+  LogOut,
+  User
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -20,7 +22,9 @@ export default function Navbar({
   onOpenInviteModal,
   onOpenHandoverModal,
   stagnantCount,
-  overdueCount
+  overdueCount,
+  adminUser,
+  onAdminLogout
 }) {
   const activeProject = projects.find(p => p.id === activeProjectId) || projects[0];
 
@@ -130,6 +134,26 @@ export default function Navbar({
         {/* Right Actions & Context Selector */}
         <div className="flex items-center gap-3 w-full md:w-auto justify-end">
           
+          {/* Admin User Badge + Logout (shown when admin is logged in) */}
+          {adminUser && (
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-950/40 border border-indigo-500/20">
+              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+                <User className="w-3.5 h-3.5 text-white" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-indigo-300 leading-none">{adminUser.name}</span>
+                <span className="text-[9px] text-indigo-400/60 font-mono leading-tight">{adminUser.role.toUpperCase()}</span>
+              </div>
+              <button
+                onClick={onAdminLogout}
+                className="ml-1 p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                title="Sign out of Admin"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Active Project Dropdown */}
           <div className="relative group">
             <select
@@ -168,6 +192,17 @@ export default function Navbar({
             <GitFork className="w-3.5 h-3.5 text-purple-400" />
             <span className="hidden lg:inline">Handover Demo</span>
           </button>
+
+          {/* Mobile Logout (only when admin is logged in) */}
+          {adminUser && (
+            <button
+              onClick={onAdminLogout}
+              className="sm:hidden p-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all border border-white/10"
+              title="Sign out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
       </div>

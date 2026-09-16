@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './components/Navbar';
 import EntryLandingPage from './components/EntryLandingPage';
+import AdminLoginPage from './components/AdminLoginPage';
+import AdminDashboard from './components/AdminDashboard';
 import AdminDashboardView from './components/AdminDashboardView';
 import TeamWorkspaceView from './components/TeamWorkspaceView';
 import InviteModal from './components/InviteModal';
@@ -14,8 +16,10 @@ import {
   initialActivityLogs
 } from './data/mockData';
 
+const API_BASE = 'http://localhost:5000/api';
+
 export default function App() {
-  const [currentView, setCurrentView] = useState('home'); // 'home' | 'admin' | 'workspace'
+  const [currentView, setCurrentView] = useState('home'); // 'home' | 'admin-login' | 'admin' | 'workspace'
   const [projects, setProjects] = useState(initialProjects);
   const [activeProjectId, setActiveProjectId] = useState('proj-101');
   const [tasks, setTasks] = useState(initialTasks);
@@ -24,10 +28,100 @@ export default function App() {
   const [handoverRecord, setHandoverRecord] = useState(flagshipHandoverRecord);
   const [activityLogs, setActivityLogs] = useState(initialActivityLogs);
 
+  // ── Admin Auth State ──
+  const [adminUser, setAdminUser] = useState(null);
+  const [adminToken, setAdminToken] = useState(null);
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
+
   // Modals state
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isHandoverModalOpen, setIsHandoverModalOpen] = useState(false);
   const [selectedProjectForHandover, setSelectedProjectForHandover] = useState(null);
+
+  // ── Restore admin session from localStorage on mount ──
+  useEffect(() => {
+    const restoreSession = async () => {
+      const savedToken = localStorage.getItem('adminToken');
+      if (!savedToken) {
+        setIsRestoringSession(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${savedToken}` }
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success && data.user.role === 'admin') {
+          setAdminToken(savedToken);
+          setAdminUser(data.user);
+        } else {
+          // Token expired or invalid — clean up
+          localStorage.removeItem('adminToken');
+        }
+      } catch {
+        // Backend unreachable — clear stale token silently
+        localStorage.removeItem('adminToken');
+      }
+
+      setIsRestoringSession(false);
+    };
+
+    restoreSession();
+  }, []);
+
+  // ── Browser History Integration ──
+  const navigateTo = useCallback((view) => {
+    setCurrentView(view);
+    window.history.pushState({ view }, '', `#${view}`);
+  }, []);
+
+  useEffect(() => {
+    window.history.replaceState({ view: 'home' }, '', '#home');
+
+    const handlePopState = (event) => {
+      const view = event.state?.view || 'home';
+      // If trying to go to admin without being logged in, redirect to login
+      if (view === 'admin' && !adminUser) {
+        setCurrentView('admin-login');
+      } else {
+        setCurrentView(view);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [adminUser]);
+
+  // ── Admin Login Success Handler ──
+  const handleAdminLoginSuccess = useCallback((token, user, targetRole) => {
+    setAdminToken(token);
+    setAdminUser(user);
+    localStorage.setItem('adminToken', token);
+    if (targetRole === 'team') {
+      navigateTo('workspace');
+    } else {
+      navigateTo('admin');
+    }
+  }, [navigateTo]);
+
+  // ── Admin Logout Handler ──
+  const handleAdminLogout = useCallback(() => {
+    setAdminToken(null);
+    setAdminUser(null);
+    localStorage.removeItem('adminToken');
+    navigateTo('home');
+  }, [navigateTo]);
+
+  // ── Navigate to Admin — gate through login ──
+  const handleNavigateToAdmin = useCallback(() => {
+    if (adminUser) {
+      navigateTo('admin');
+    } else {
+      navigateTo('admin-login');
+    }
+  }, [adminUser, navigateTo]);
 
   // Counts for alerts
   const stagnantCount = projects.filter(p => p.lastUpdateDaysAgo >= 7 && p.status === 'active').length;
@@ -38,7 +132,7 @@ export default function App() {
   // Select project and switch to workspace
   const handleSelectProject = (projectId) => {
     setActiveProjectId(projectId);
-    setCurrentView('workspace');
+    navigateTo('workspace');
   };
 
   // Trigger handover modal
@@ -117,7 +211,7 @@ export default function App() {
 
     // Switch view directly into the continuation workspace!
     setActiveProjectId(selectedProjectForHandover?.id || activeProjectId);
-    setCurrentView('workspace');
+    navigateTo('workspace');
   };
 
   // Approve a pending proposal
@@ -131,15 +225,34 @@ export default function App() {
     alert('Project proposal approved! Status is now ACTIVE.');
   };
 
+  // ── View Router with custom setCurrentView that gates admin ──
+  const handleSetCurrentView = useCallback((view) => {
+    if (view === 'admin') {
+      handleNavigateToAdmin();
+    } else {
+      navigateTo(view);
+    }
+  }, [handleNavigateToAdmin, navigateTo]);
+
   return (
     <div className="min-h-screen font-sans">
       
       {currentView === 'home' ? (
         <EntryLandingPage
-          onEnterAdmin={() => setCurrentView('admin')}
-          onEnterWorkspace={() => setCurrentView('workspace')}
+          onEnterAdmin={handleNavigateToAdmin}
+          onEnterWorkspace={() => navigateTo('workspace')}
           onOpenHandoverDemo={() => handleOpenHandoverModal(activeProject)}
           onOpenInviteModal={() => setIsInviteModalOpen(true)}
+        />
+      ) : currentView === 'admin-login' ? (
+        <AdminLoginPage
+          onLoginSuccess={handleAdminLoginSuccess}
+          onBack={() => navigateTo('home')}
+        />
+      ) : currentView === 'admin' ? (
+        <AdminDashboard
+          adminUser={adminUser}
+          onLogout={handleAdminLogout}
         />
       ) : (
         <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white relative">
@@ -150,7 +263,7 @@ export default function App() {
           {/* Top Navigation */}
           <Navbar
             currentView={currentView}
-            setCurrentView={setCurrentView}
+            setCurrentView={handleSetCurrentView}
             projects={projects}
             activeProjectId={activeProjectId}
             setActiveProjectId={setActiveProjectId}
@@ -158,21 +271,14 @@ export default function App() {
             onOpenHandoverModal={() => handleOpenHandoverModal(activeProject)}
             stagnantCount={stagnantCount}
             overdueCount={overdueCount}
+            adminUser={adminUser}
+            onAdminLogout={handleAdminLogout}
           />
 
           {/* Main Content Area */}
           <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6 z-10">
-            {currentView === 'admin' ? (
-              <AdminDashboardView
-                projects={projects}
-                onSelectProject={handleSelectProject}
-                onOpenInviteModal={() => setIsInviteModalOpen(true)}
-                onOpenHandoverModal={handleOpenHandoverModal}
-                onApproveProject={handleApproveProject}
-              />
-            ) : (
-              <TeamWorkspaceView
-                project={activeProject}
+            <TeamWorkspaceView
+              project={activeProject}
                 tasks={tasks}
                 setTasks={setTasks}
                 milestones={milestones}
@@ -182,7 +288,6 @@ export default function App() {
                 activityLogs={activityLogs}
                 onTriggerHandover={() => handleOpenHandoverModal(activeProject)}
               />
-            )}
           </main>
 
           {/* Footer for Dashboard / Workspace */}
@@ -190,7 +295,7 @@ export default function App() {
             <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => setCurrentView('home')} 
+                  onClick={() => navigateTo('home')} 
                   className="font-extrabold text-slate-300 font-display hover:text-indigo-400 transition-colors"
                 >
                   ProjectNexus

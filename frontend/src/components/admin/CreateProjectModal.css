@@ -1,0 +1,468 @@
+/* ==========================================================================
+   ProjectNexus — Create Project Modal Styles
+   Enterprise SaaS Visual Polish (Linear / Notion caliber modal system)
+   ========================================================================== */
+
+/* Overlay */
+.cpm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 32px 20px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* Modal Window Container */
+.cpm-modal {
+  background-color: #FFFFFF;
+  border-radius: 16px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 24px 50px -12px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(226, 232, 240, 0.7);
+  width: 100%;
+  max-width: 740px;
+  margin: auto;
+  overflow: hidden;
+  box-sizing: border-box;
+  animation: cpmModalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cpmModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Modal Header */
+.cpm-header {
+  padding: 28px 32px 22px 32px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid #E2E8F0;
+  background-color: #FFFFFF;
+  box-sizing: border-box;
+}
+
+.cpm-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cpm-header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background-color: #EFF6FF;
+  color: #2563EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid #DBEAFE;
+}
+
+.cpm-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cpm-header-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.cpm-header-subtitle {
+  font-size: 13px;
+  color: #64748B;
+  margin: 0;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.cpm-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94A3B8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-top: 2px;
+  margin-right: -4px;
+}
+
+.cpm-close-btn:hover {
+  background-color: #F1F5F9;
+  color: #0F172A;
+  border-color: #E2E8F0;
+}
+
+/* Modal Body with 32px padding on all sides */
+.cpm-body {
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+/* Error Banner */
+.cpm-error-banner {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background-color: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #B91C1C;
+}
+
+/* Form Container */
+.cpm-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Two-Column Form Row */
+.cpm-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  align-items: start;
+}
+
+/* Field */
+.cpm-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.cpm-label {
+  display: flex;
+  align-items: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+.cpm-label-required {
+  color: #EF4444;
+  margin-left: 3px;
+}
+
+.cpm-label-hint {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: #94A3B8;
+  margin-left: 6px;
+}
+
+/* Shared Input & Select Styling (44px height, 8px border-radius, 14px horizontal padding) */
+.cpm-input,
+.cpm-select {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  font-size: 13px;
+  color: #0F172A;
+  background-color: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 8px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  font-family: inherit;
+}
+
+.cpm-input:focus,
+.cpm-select:focus,
+.cpm-textarea:focus {
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  background-color: #FFFFFF;
+}
+
+.cpm-input::placeholder,
+.cpm-textarea::placeholder {
+  color: #94A3B8;
+}
+
+/* Dropdown Wrapper & Chevron Icon */
+.cpm-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.cpm-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 38px;
+  cursor: pointer;
+}
+
+.cpm-select-chevron {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #64748B;
+}
+
+/* Input with Icon Wrapper */
+.cpm-input-icon-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.cpm-input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #94A3B8;
+}
+
+.cpm-input-with-icon {
+  padding-left: 40px;
+}
+
+/* Priority Segmented Button Group */
+.cpm-priority-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  height: 44px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cpm-priority-btn {
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1.5px solid #E2E8F0;
+  background-color: #F8FAFC;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.cpm-priority-btn:hover {
+  background-color: #F1F5F9;
+  color: #334155;
+  border-color: #CBD5E1;
+}
+
+/* Priority Selected States */
+.cpm-priority-btn.selected-low {
+  background-color: #2563EB;
+  color: #FFFFFF;
+  border-color: #2563EB;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28);
+}
+
+.cpm-priority-btn.selected-medium {
+  background-color: #F59E0B;
+  color: #FFFFFF;
+  border-color: #F59E0B;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.28);
+}
+
+.cpm-priority-btn.selected-high {
+  background-color: #EF4444;
+  color: #FFFFFF;
+  border-color: #EF4444;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.28);
+}
+
+/* Description Textarea with 110-120px height and resize handle */
+.cpm-textarea {
+  width: 100%;
+  min-height: 110px;
+  height: 110px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #0F172A;
+  background-color: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 8px;
+  box-sizing: border-box;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+/* Hardware / IoT Dynamic Fields Card */
+.cpm-dynamic-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 20px;
+  border-radius: 12px;
+  background-color: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  box-sizing: border-box;
+}
+
+/* Footer with 16px vertical padding and subtle top border */
+.cpm-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #E2E8F0;
+  padding-top: 24px;
+  margin-top: 6px;
+  box-sizing: border-box;
+}
+
+.cpm-btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cpm-btn-back:hover {
+  color: #0F172A;
+  background-color: #F1F5F9;
+}
+
+.cpm-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cpm-btn-cancel {
+  padding: 12px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  background-color: #FFFFFF;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.cpm-btn-cancel:hover {
+  background-color: #F8FAFC;
+  border-color: #94A3B8;
+  color: #0F172A;
+}
+
+.cpm-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #FFFFFF;
+  background-color: #2563EB;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.cpm-btn-primary:hover:not(:disabled) {
+  background-color: #1D4ED8;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+.cpm-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .cpm-modal {
+    max-width: 100%;
+  }
+  .cpm-header {
+    padding: 20px;
+  }
+  .cpm-body {
+    padding: 20px;
+  }
+  .cpm-form-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .cpm-dynamic-card {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .cpm-footer {
+    flex-direction: column-reverse;
+    gap: 16px;
+    align-items: stretch;
+  }
+  .cpm-footer-right {
+    flex-direction: column-reverse;
+    width: 100%;
+  }
+  .cpm-btn-cancel,
+  .cpm-btn-primary,
+  .cpm-btn-back {
+    width: 100%;
+    justify-content: center;
+  }
+}
