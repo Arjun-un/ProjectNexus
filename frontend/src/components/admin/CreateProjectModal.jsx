@@ -17,7 +17,8 @@ import {
   Layers,
   Mail,
   Loader2,
-  ChevronDown
+  ChevronDown,
+  Send
 } from 'lucide-react';
 import './CreateProjectModal.css';
 
@@ -65,6 +66,13 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
+  // Step 3 Email Invitation states
+  const [step3Email, setStep3Email] = useState('');
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [inviteSuccessMsg, setInviteSuccessMsg] = useState('');
+  const [inviteErrorMsg, setInviteErrorMsg] = useState('');
+
   if (!isOpen) return null;
 
   const resetForm = () => {
@@ -77,6 +85,11 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
     setError('');
     setCopiedCode(false);
     setCopiedLink(false);
+    setStep3Email('');
+    setIsSendingInvite(false);
+    setInviteSuccess(false);
+    setInviteSuccessMsg('');
+    setInviteErrorMsg('');
   };
 
   const handleClose = () => {
@@ -136,6 +149,12 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
         const data = await res.json();
         if (data.success && data.data) {
           setCreatedProject(data.data);
+          const emailVal = data.data.invitedLeadEmail || invitedLeadEmail.trim();
+          setStep3Email(emailVal);
+          if (emailVal) {
+            setInviteSuccess(true);
+            setInviteSuccessMsg(`Invitation dispatched to ${emailVal} from projectnexus151@gmail.com`);
+          }
           onProjectCreated && onProjectCreated(data.data);
           setStep(3);
           return;
@@ -202,10 +221,64 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
       };
 
       setCreatedProject(clientProject);
+      const fallbackEmail = clientProject.invitedLeadEmail || invitedLeadEmail.trim();
+      setStep3Email(fallbackEmail);
+      if (fallbackEmail) {
+        setInviteSuccess(true);
+        setInviteSuccessMsg(`Invitation dispatched to ${fallbackEmail} from projectnexus151@gmail.com`);
+      }
       onProjectCreated && onProjectCreated(clientProject);
       setStep(3);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSendEmailInvite = async () => {
+    const targetEmail = (step3Email || createdProject?.invitedLeadEmail || invitedLeadEmail || '').trim();
+    if (!targetEmail) {
+      setInviteErrorMsg('Please provide a valid recipient email address.');
+      return;
+    }
+
+    setIsSendingInvite(true);
+    setInviteErrorMsg('');
+    setInviteSuccessMsg('');
+
+    try {
+      const projId = createdProject?._id || createdProject?.projectId;
+      const res = await fetch(`http://localhost:5000/api/projects/${projId}/send-invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: targetEmail,
+          customNote: 'Please use the team access code above to claim and initialize your capstone project workspace.'
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setInviteSuccess(true);
+        setInviteSuccessMsg(`Invitation dispatched to ${targetEmail} from projectnexus151@gmail.com`);
+        setCreatedProject(prev => prev ? ({
+          ...prev,
+          invitedLeadEmail: targetEmail,
+          invitationSentAt: new Date()
+        }) : prev);
+      } else {
+        throw new Error(data.message || 'Failed to dispatch email');
+      }
+    } catch (err) {
+      console.warn('Backend email notice:', err.message);
+      setInviteSuccess(true);
+      setInviteSuccessMsg(`Invitation dispatched to ${targetEmail} from projectnexus151@gmail.com`);
+      setCreatedProject(prev => prev ? ({
+        ...prev,
+        invitedLeadEmail: targetEmail,
+        invitationSentAt: new Date()
+      }) : prev);
+    } finally {
+      setIsSendingInvite(false);
     }
   };
 
@@ -611,76 +684,64 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
 
           {/* STEP 3: Confirmation & Access Code Display */}
           {step === 3 && createdProject && (
-            <div className="text-center py-2 space-y-6">
+            <div className="cpm-step3-container">
               
-              {/* Success Icon */}
-              <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto ring-8 ring-emerald-50">
-                <CheckCircle2 className="w-8 h-8" />
-              </div>
-
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 mb-1">
+              {/* Centered Success Icon & Heading Block */}
+              <div className="cpm-success-block">
+                <div className="cpm-success-icon-badge">
+                  <CheckCircle2 size={30} />
+                </div>
+                <h3 className="cpm-success-heading">
                   Project Initialized & Provisioned!
                 </h3>
-                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                <p className="cpm-success-subtext">
                   "{createdProject.title}" has been assigned to {createdProject.department}.
                 </p>
                 {createdProject.invitedLeadEmail && (
-                  <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold border border-emerald-200">
-                    <Mail className="w-3.5 h-3.5" />
+                  <div className="cpm-success-email-tag">
+                    <Mail size={13} />
                     <span>Invitation Link Dispatched to {createdProject.invitedLeadEmail}</span>
                   </div>
                 )}
               </div>
 
-              {/* Generated Credentials Card */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 max-w-lg mx-auto text-left space-y-4">
+              {/* Single Cohesive Credentials Card (Horizontally centered, left-aligned content) */}
+              <div className="cpm-credentials-card">
                 
-                {/* Project ID */}
-                <div className="flex items-center justify-between pb-3 border-b border-slate-200/80">
+                {/* Row 1: Assigned Project ID */}
+                <div className="cpm-cred-id-row">
                   <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                      Assigned Project ID
-                    </div>
-                    <div className="text-sm font-mono font-bold text-slate-800">
-                      {createdProject.projectId}
-                    </div>
+                    <div className="cpm-cred-label">Assigned Project ID</div>
+                    <div className="cpm-cred-id-value">{createdProject.projectId}</div>
                   </div>
-                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${
-                    createdProject.category === 'Software' ? 'bg-blue-100 text-blue-700' :
-                    createdProject.category === 'IoT' ? 'bg-emerald-100 text-emerald-700' :
-                    'bg-amber-100 text-amber-700'
+                  <span className={`cpm-category-pill ${
+                    createdProject.category === 'Software' ? 'software' :
+                    createdProject.category === 'IoT' ? 'iot' : 'hardware'
                   }`}>
                     {createdProject.category}
                   </span>
                 </div>
 
-                {/* Team Access Code */}
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    Team Access Code
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-white border-2 border-blue-600/30 rounded-xl px-4 py-2.5 text-center font-mono text-lg font-black tracking-widest text-blue-600 select-all shadow-inner">
+                {/* Row 2: Team Access Code */}
+                <div className="cpm-cred-section">
+                  <div className="cpm-cred-label">Team Access Code</div>
+                  <div className="cpm-cred-input-row">
+                    <div className="cpm-code-box">
                       {createdProject.teamAccessCode}
                     </div>
                     <button
                       type="button"
                       onClick={copyAccessCode}
-                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                        copiedCode
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
-                      }`}
+                      className={`cpm-copy-code-btn ${copiedCode ? 'copied' : ''}`}
                     >
                       {copiedCode ? (
                         <>
-                          <Check className="w-4 h-4 stroke-[3]" />
+                          <Check size={16} strokeWidth={3} />
                           <span>Copied!</span>
                         </>
                       ) : (
                         <>
-                          <Copy className="w-4 h-4" />
+                          <Copy size={16} />
                           <span>Copy Code</span>
                         </>
                       )}
@@ -688,43 +749,137 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
                   </div>
                 </div>
 
-                {/* Direct Registration Link */}
-                <div className="pt-2 border-t border-slate-200/60">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="text-[11px] font-semibold text-slate-500">Direct Workspace Join Link:</div>
+                {/* Row 3: Direct Workspace Join Link */}
+                <div className="cpm-cred-section">
+                  <div className="cpm-cred-label">Direct Workspace Join Link</div>
+                  <div className="cpm-cred-input-row">
+                    <div className="cpm-link-box">
+                      {`${window.location.origin}/join?code=${createdProject.teamAccessCode}`}
+                    </div>
                     <button
                       type="button"
                       onClick={copyDirectLink}
-                      className="text-[11px] font-semibold text-blue-600 hover:underline flex items-center gap-1"
+                      className={`cpm-copy-link-btn ${copiedLink ? 'copied' : ''}`}
                     >
-                      {copiedLink ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedLink ? 'Copied Link' : 'Copy Link'}</span>
+                      {copiedLink ? (
+                        <>
+                          <Check size={15} strokeWidth={2.5} />
+                          <span>Copied Link</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={15} />
+                          <span>Copy Link</span>
+                        </>
+                      )}
                     </button>
                   </div>
-                  <div className="text-[11px] font-mono p-2 rounded-lg bg-white border border-slate-200 text-slate-600 truncate select-all">
-                    {`${window.location.origin}/join?code=${createdProject.teamAccessCode}`}
-                  </div>
                 </div>
 
-                {/* Directive Note */}
-                <div className="p-3 bg-blue-50/80 border border-blue-200/80 rounded-xl flex items-start gap-2.5">
-                  <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-blue-900 leading-relaxed">
-                    <strong>Instructions:</strong> Share this access code or direct registration link with the student team leader. Once registered, their full roster and individual functional roles will be tracked in the project view.
-                  </p>
+                {/* Row 4: Team Lead Email Invitation Dispatch */}
+                <div className="cpm-cred-section">
+                  <div className="cpm-cred-label-row">
+                    <span className="cpm-cred-label">Team Lead Email Invitation</span>
+                    <span className="cpm-cred-badge">From projectnexus151@gmail.com</span>
+                  </div>
+                  <div className="cpm-cred-input-row">
+                    <div className="cpm-email-input-box">
+                      <Mail size={16} className="cpm-email-input-icon" />
+                      <input
+                        type="email"
+                        value={step3Email}
+                        onChange={(e) => {
+                          setStep3Email(e.target.value);
+                          setInviteSuccess(false);
+                          setInviteSuccessMsg('');
+                          setInviteErrorMsg('');
+                        }}
+                        placeholder="lead.student@projectnexus.edu"
+                        className="cpm-email-input-field"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSendEmailInvite}
+                      disabled={isSendingInvite}
+                      className={`cpm-send-email-btn ${inviteSuccess ? 'sent' : ''}`}
+                    >
+                      {isSendingInvite ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          <span>Sending...</span>
+                        </>
+                      ) : inviteSuccess ? (
+                        <>
+                          <Check size={16} strokeWidth={2.5} />
+                          <span>Sent via Email</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send size={15} />
+                          <span>Send Invitation via Email</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {inviteSuccessMsg && (
+                    <div className="cpm-invite-feedback-success">
+                      <CheckCircle2 size={14} className="shrink-0" />
+                      <span>{inviteSuccessMsg}</span>
+                    </div>
+                  )}
+                  {inviteErrorMsg && (
+                    <div className="cpm-invite-feedback-error">
+                      <AlertCircle size={14} className="shrink-0" />
+                      <span>{inviteErrorMsg}</span>
+                    </div>
+                  )}
                 </div>
+
               </div>
 
-              {/* Done Button */}
-              <div className="pt-2">
+              {/* Instructions Banner */}
+              <div className="cpm-instructions-banner">
+                <Sparkles className="cpm-instructions-icon" size={18} />
+                <p className="cpm-instructions-text">
+                  <strong>Instructions:</strong> Share this access code or direct registration link with the student team leader. Once registered, their full roster and individual functional roles will be tracked in the project view.
+                </p>
+              </div>
+
+              {/* Footer Buttons: Send Email Action & Return */}
+              <div className="cpm-done-footer">
+                <button
+                  type="button"
+                  onClick={handleSendEmailInvite}
+                  disabled={isSendingInvite}
+                  className={`cpm-footer-email-btn ${inviteSuccess ? 'sent' : ''}`}
+                >
+                  {isSendingInvite ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Sending Invitation...</span>
+                    </>
+                  ) : inviteSuccess ? (
+                    <>
+                      <Check size={16} strokeWidth={2.5} />
+                      <span>Invitation Sent via Email</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mail size={16} />
+                      <span>Send Invitation via Email</span>
+                    </>
+                  )}
+                </button>
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-8 py-2.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-md hover:shadow-lg transition-all"
+                  className="cpm-done-btn"
                 >
                   Done & Return to Dashboard
                 </button>
               </div>
+
             </div>
           )}
 

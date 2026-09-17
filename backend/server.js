@@ -36,11 +36,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Route Mounts (Will be populated in next phases)
-// app.use('/api/auth', authRoutes);
-// app.use('/api/invitations', invitationRoutes);
-// app.use('/api/teams', teamRoutes);
-// app.use('/api/projects', projectRoutes);
+// Route Mounts
+const authRoutes = require('./routes/authRoutes');
+const projectRoutes = require('./routes/projectRoutes');
+
+app.use('/api/auth', authRoutes);
+app.use('/api/projects', projectRoutes);
 // app.use('/api/tasks', taskRoutes);
 // app.use('/api/milestones', milestoneRoutes);
 // app.use('/api/updates', updateRoutes);

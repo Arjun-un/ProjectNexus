@@ -59,12 +59,7 @@ export default function SendInviteModal({ isOpen, onClose, project, onInviteSent
         throw new Error(data.message || 'Failed to dispatch email');
       }
     } catch (err) {
-      // Fallback for seamless demo
-      setIsSuccess(true);
-      onInviteSent && onInviteSent(email.trim(), {
-        invitedLeadEmail: email.trim(),
-        invitationSentAt: new Date()
-      });
+      setError(err.message || 'Could not reach the server. Make sure the backend is running on port 5000.');
     } finally {
       setIsSending(false);
     }

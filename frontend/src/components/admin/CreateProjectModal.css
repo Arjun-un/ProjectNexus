@@ -431,6 +431,468 @@
   cursor: not-allowed;
 }
 
+/* ==========================================================================
+   Step 3: Confirmation & Credentials Styles
+   ========================================================================== */
+.cpm-step3-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Centered Success Header Block */
+.cpm-success-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.cpm-success-icon-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: #ECFDF5;
+  color: #10B981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 6px solid #F0FDF4;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+  margin-bottom: 16px;
+}
+
+.cpm-success-heading {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
+}
+
+.cpm-success-subtext {
+  font-size: 13px;
+  color: #64748B;
+  margin: 0;
+  max-width: 540px;
+  line-height: 1.5;
+}
+
+.cpm-success-email-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background-color: #ECFDF5;
+  color: #047857;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid #A7F3D0;
+}
+
+/* Credentials Panel: Single cohesive card */
+.cpm-credentials-card {
+  width: 100%;
+  max-width: 620px;
+  background-color: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  text-align: left;
+}
+
+/* Row 1: Project ID */
+.cpm-cred-id-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.cpm-cred-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748B;
+  margin-bottom: 4px;
+}
+
+.cpm-cred-id-value {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0F172A;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: -0.01em;
+}
+
+.cpm-category-pill {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cpm-category-pill.software {
+  background-color: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+
+.cpm-category-pill.iot {
+  background-color: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+}
+
+.cpm-category-pill.hardware {
+  background-color: #FFFBEB;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+/* Row 2 & 3: Sections */
+.cpm-cred-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.cpm-cred-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cpm-code-box {
+  flex: 1;
+  height: 44px;
+  background-color: #EFF6FF;
+  border: 1.5px solid #BFDBFE;
+  border-radius: 8px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1D4ED8;
+  letter-spacing: 0.18em;
+  user-select: all;
+  box-sizing: border-box;
+}
+
+.cpm-copy-code-btn {
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #FFFFFF;
+  background-color: #2563EB;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.cpm-copy-code-btn:hover {
+  background-color: #1D4ED8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.cpm-copy-code-btn.copied {
+  background-color: #10B981;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+}
+
+.cpm-link-box {
+  flex: 1;
+  height: 44px;
+  background-color: #FFFFFF;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 8px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  color: #475569;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: all;
+  box-sizing: border-box;
+}
+
+.cpm-copy-link-btn {
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  background-color: #FFFFFF;
+  border: 1.5px solid #CBD5E1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.cpm-copy-link-btn:hover {
+  background-color: #F1F5F9;
+  border-color: #94A3B8;
+  color: #0F172A;
+}
+
+.cpm-copy-link-btn.copied {
+  background-color: #ECFDF5;
+  border-color: #A7F3D0;
+  color: #047857;
+}
+
+/* Instructions Banner */
+.cpm-instructions-banner {
+  width: 100%;
+  max-width: 620px;
+  margin-top: 22px;
+  background-color: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.cpm-instructions-icon {
+  color: #2563EB;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.cpm-instructions-text {
+  font-size: 12.5px;
+  color: #1E40AF;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.cpm-instructions-text strong {
+  font-weight: 700;
+  color: #1E3A8A;
+}
+
+/* Step 3 Email Invitation Section */
+.cpm-cred-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.cpm-cred-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: #2563EB;
+  background-color: #EFF6FF;
+  border-radius: 6px;
+  padding: 2px 8px;
+  border: 1px solid #DBEAFE;
+}
+
+.cpm-email-input-box {
+  flex: 1;
+  height: 44px;
+  background-color: #FFFFFF;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cpm-email-input-box:focus-within {
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.cpm-email-input-icon {
+  color: #64748B;
+  flex-shrink: 0;
+}
+
+.cpm-email-input-field {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  color: #0F172A;
+  background: transparent;
+  font-family: inherit;
+}
+
+.cpm-send-email-btn {
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #FFFFFF;
+  background-color: #2563EB;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.cpm-send-email-btn:hover:not(:disabled) {
+  background-color: #1D4ED8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+.cpm-send-email-btn:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.cpm-send-email-btn.sent {
+  background-color: #10B981;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+}
+
+.cpm-invite-feedback-success {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background-color: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #065F46;
+}
+
+.cpm-invite-feedback-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background-color: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #991B1B;
+}
+
+/* Step 3 Footer Button Group */
+.cpm-done-footer {
+  width: 100%;
+  max-width: 620px;
+  margin-top: 24px;
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cpm-footer-email-btn {
+  width: 100%;
+  height: 46px;
+  border-radius: 10px;
+  background-color: #2563EB;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 3px 12px rgba(37, 99, 235, 0.25);
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.cpm-footer-email-btn:hover:not(:disabled) {
+  background-color: #1D4ED8;
+  box-shadow: 0 5px 16px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+.cpm-footer-email-btn:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.cpm-footer-email-btn.sent {
+  background-color: #059669;
+  box-shadow: 0 3px 12px rgba(5, 150, 105, 0.25);
+}
+
+.cpm-done-btn {
+  width: 100%;
+  height: 48px;
+  border-radius: 10px;
+  background-color: #0F172A;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2);
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.cpm-done-btn:hover {
+  background-color: #1E293B;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.3);
+  transform: translateY(-1px);
+}
+
 /* Responsive adjustments */
 @media (max-width: 640px) {
   .cpm-modal {
