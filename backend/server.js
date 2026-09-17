@@ -6,7 +6,7 @@ const dotenv = require('dotenv');
 // Load environment variables
 dotenv.config();
 
-const connectDB = require('./config/db');
+const connectDB = require('./db/db');
 const { notFound, errorHandler } = require('./middlewares/errorHandler');
 
 // Initialize Database Connection
@@ -39,9 +39,11 @@ app.get('/api/health', (req, res) => {
 // Route Mounts
 const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
+const webhookRoutes = require('./routes/webhookRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/webhooks', webhookRoutes);
 // app.use('/api/tasks', taskRoutes);
 // app.use('/api/milestones', milestoneRoutes);
 // app.use('/api/updates', updateRoutes);

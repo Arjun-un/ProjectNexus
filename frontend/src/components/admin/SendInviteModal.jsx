@@ -42,12 +42,18 @@ export default function SendInviteModal({ isOpen, onClose, project, onInviteSent
     setError('');
 
     try {
-      const res = await fetch(`http://localhost:5000/api/projects/${project._id || project.projectId}/send-invite`, {
+      const targetId = project.projectId || project._id || 'PRJ-NEXUS';
+      const res = await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(targetId)}/send-invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: email.trim(),
-          customNote: customNote.trim()
+          customNote: customNote.trim(),
+          projectTitle: project.title,
+          teamAccessCode: project.teamAccessCode,
+          department: project.department,
+          facultyGuide: project.facultyGuide,
+          deadline: project.deadline
         })
       });
 

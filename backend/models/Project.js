@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const memberSchema = new mongoose.Schema({
   name: { type: String, trim: true },
   email: { type: String, trim: true, lowercase: true },
-  role: { type: String, trim: true, default: 'Project Contributor' }
+  rollNo: { type: String, trim: true, default: '' },
+  role: { type: String, trim: true, default: 'Project Contributor' },
+  githubUsername: { type: String, trim: true, default: '' }
 }, { _id: false });
 
 const teamSchema = new mongoose.Schema({
@@ -11,7 +13,9 @@ const teamSchema = new mongoose.Schema({
   leader: {
     name: { type: String, default: '' },
     email: { type: String, default: '' },
-    role: { type: String, default: 'Team Lead' }
+    rollNo: { type: String, default: '' },
+    role: { type: String, default: 'Team Lead' },
+    githubUsername: { type: String, default: '' }
   },
   members: [memberSchema]
 }, { _id: false });
@@ -89,6 +93,11 @@ const projectSchema = new mongoose.Schema({
     trim: true
   }],
   labAssigned: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  githubUrl: {
     type: String,
     default: '',
     trim: true

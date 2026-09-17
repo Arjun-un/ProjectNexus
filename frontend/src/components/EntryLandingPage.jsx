@@ -99,6 +99,7 @@ function FloatingOrbs() {
 export default function EntryLandingPage({
   onEnterAdmin,
   onEnterWorkspace,
+  onEnterAccessCode,
   onOpenHandoverDemo
 }) {
   const [activeModal, setActiveModal] = useState(null);
@@ -251,7 +252,7 @@ export default function EntryLandingPage({
               Admin Dashboard
             </button>
             <button onClick={onEnterWorkspace} className="landing-btn-primary-sm">
-              Launch Workspace
+              Login to Workspace
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -274,7 +275,7 @@ export default function EntryLandingPage({
             <hr />
             <button onClick={() => { onEnterAdmin?.(); setMobileMenuOpen(false); }}>Admin Dashboard</button>
             <button onClick={() => { onEnterWorkspace?.(); setMobileMenuOpen(false); }} className="landing-mobile-cta">
-              Launch Workspace →
+              Login to Workspace →
             </button>
           </div>
         )}
@@ -306,9 +307,9 @@ export default function EntryLandingPage({
 
           {/* CTA Buttons */}
           <div className="landing-hero-ctas">
-            <button onClick={onEnterWorkspace} className="landing-btn-primary">
+            <button onClick={onEnterAccessCode} className="landing-btn-primary">
               <Play className="w-4 h-4" />
-              <span>Launch Team Workspace</span>
+              <span>Enter Access Code</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
@@ -551,7 +552,7 @@ export default function EntryLandingPage({
           <div className="landing-cta-btns">
             <button onClick={onEnterWorkspace} className="landing-btn-primary landing-btn-white">
               <Zap className="w-4 h-4" />
-              <span>Launch Workspace</span>
+              <span>Login to Workspace</span>
               <ArrowRight className="w-4 h-4" />
             </button>
             <button onClick={onEnterAdmin} className="landing-btn-outline-white">

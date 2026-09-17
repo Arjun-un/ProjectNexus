@@ -5,8 +5,11 @@ import AdminLoginPage from './components/AdminLoginPage';
 import AdminDashboard from './components/AdminDashboard';
 import AdminDashboardView from './components/AdminDashboardView';
 import TeamWorkspaceView from './components/TeamWorkspaceView';
+import TeamWorkspacePage from './components/TeamWorkspacePage';
 import InviteModal from './components/InviteModal';
 import HandoverModal from './components/HandoverModal';
+import WorkspaceLoginPage from './components/WorkspaceLoginPage';
+import AccessCodePage from './components/AccessCodePage';
 import { 
   initialProjects, 
   initialTasks, 
@@ -19,7 +22,7 @@ import {
 const API_BASE = 'http://localhost:5000/api';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState('home'); // 'home' | 'admin-login' | 'admin' | 'workspace'
+  const [currentView, setCurrentView] = useState('home'); // 'home' | 'workspace-login' | 'access-code' | 'admin-login' | 'admin' | 'workspace'
   const [projects, setProjects] = useState(initialProjects);
   const [activeProjectId, setActiveProjectId] = useState('proj-101');
   const [tasks, setTasks] = useState(initialTasks);
@@ -234,15 +237,63 @@ export default function App() {
     }
   }, [handleNavigateToAdmin, navigateTo]);
 
+  // Handle successful workspace login or access code redemption
+  const handleWorkspaceAccess = (token, user, project) => {
+    if (project) {
+      const projId = project.id || project.projectId;
+      setProjects(prev => {
+        const exists = prev.some(p => p.id === projId || p.projectId === projId);
+        if (exists) {
+          return prev.map(p => (p.id === projId || p.projectId === projId ? { ...p, ...project } : p));
+        }
+        return [{
+          id: projId,
+          projectId: project.projectId || projId,
+          title: project.title,
+          category: project.category || 'Software',
+          department: project.department || 'Computer Science',
+          academicYear: project.academicYear || '2025-2026',
+          facultyGuide: project.facultyGuide || 'Department Committee',
+          deadline: project.deadline || '2026-05-30',
+          priority: project.priority || 'Medium',
+          description: project.description || '',
+          techStack: project.techStack || ['React', 'Node.js'],
+          teamAccessCode: project.teamAccessCode,
+          status: project.status || 'active',
+          currentProgress: project.progress || 10,
+          currentVersionNumber: 1,
+          team: project.team || {
+            name: 'Workspace Team',
+            lead: { name: user?.name || 'Team Lead', email: user?.email || 'lead@projectnexus.edu' },
+            members: []
+          }
+        }, ...prev];
+      });
+      setActiveProjectId(projId);
+    }
+    navigateTo('workspace');
+  };
+
   return (
     <div className="min-h-screen font-sans">
       
       {currentView === 'home' ? (
         <EntryLandingPage
           onEnterAdmin={handleNavigateToAdmin}
-          onEnterWorkspace={() => navigateTo('workspace')}
+          onEnterWorkspace={() => navigateTo('workspace-login')}
+          onEnterAccessCode={() => navigateTo('access-code')}
           onOpenHandoverDemo={() => handleOpenHandoverModal(activeProject)}
           onOpenInviteModal={() => setIsInviteModalOpen(true)}
+        />
+      ) : currentView === 'workspace-login' ? (
+        <WorkspaceLoginPage
+          onLoginSuccess={handleWorkspaceAccess}
+          onBack={() => navigateTo('home')}
+        />
+      ) : currentView === 'access-code' ? (
+        <AccessCodePage
+          onSuccess={handleWorkspaceAccess}
+          onBack={() => navigateTo('home')}
         />
       ) : currentView === 'admin-login' ? (
         <AdminLoginPage
@@ -255,65 +306,18 @@ export default function App() {
           onLogout={handleAdminLogout}
         />
       ) : (
-        <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white relative">
-          
-          {/* Ambient background glow effects */}
-          <div className="bg-ambient-glow" />
-
-          {/* Top Navigation */}
-          <Navbar
-            currentView={currentView}
-            setCurrentView={handleSetCurrentView}
-            projects={projects}
-            activeProjectId={activeProjectId}
-            setActiveProjectId={setActiveProjectId}
-            onOpenInviteModal={() => setIsInviteModalOpen(true)}
-            onOpenHandoverModal={() => handleOpenHandoverModal(activeProject)}
-            stagnantCount={stagnantCount}
-            overdueCount={overdueCount}
-            adminUser={adminUser}
-            onAdminLogout={handleAdminLogout}
-          />
-
-          {/* Main Content Area */}
-          <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6 z-10">
-            <TeamWorkspaceView
-              project={activeProject}
-                tasks={tasks}
-                setTasks={setTasks}
-                milestones={milestones}
-                weeklyUpdates={weeklyUpdates}
-                setWeeklyUpdates={setWeeklyUpdates}
-                handoverRecord={handoverRecord}
-                activityLogs={activityLogs}
-                onTriggerHandover={() => handleOpenHandoverModal(activeProject)}
-              />
-          </main>
-
-          {/* Footer for Dashboard / Workspace */}
-          <footer className="border-t border-white/10 py-6 px-4 lg:px-8 text-center text-xs text-slate-500 z-10 bg-slate-950/80 backdrop-blur-md">
-            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => navigateTo('home')} 
-                  className="font-extrabold text-slate-300 font-display hover:text-indigo-400 transition-colors"
-                >
-                  ProjectNexus
-                </button>
-                <span>—</span>
-                <span>Academic Project Lifecycle & Versioned Continuity OS</span>
-              </div>
-              <div className="flex items-center gap-4 text-[11px] font-mono">
-                <span className="text-indigo-400">Queryable Version History</span>
-                <span>•</span>
-                <span className="text-emerald-400">Jira Kanban Sync</span>
-                <span>•</span>
-                <span className="text-purple-400">Token-Gated RBAC</span>
-              </div>
-            </div>
-          </footer>
-
-        </div>
+        <TeamWorkspacePage
+          project={activeProject}
+          tasks={tasks}
+          setTasks={setTasks}
+          milestones={milestones}
+          weeklyUpdates={weeklyUpdates}
+          setWeeklyUpdates={setWeeklyUpdates}
+          handoverRecord={handoverRecord}
+          activityLogs={activityLogs}
+          onTriggerHandover={() => handleOpenHandoverModal(activeProject)}
+          onHome={() => navigateTo('home')}
+        />
       )}
 
       {/* Modals */}

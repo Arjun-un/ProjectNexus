@@ -246,13 +246,18 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
     setInviteSuccessMsg('');
 
     try {
-      const projId = createdProject?._id || createdProject?.projectId;
-      const res = await fetch(`http://localhost:5000/api/projects/${projId}/send-invite`, {
+      const projId = createdProject?.projectId || createdProject?._id || 'PRJ-NEXUS';
+      const res = await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(projId)}/send-invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: targetEmail,
-          customNote: 'Please use the team access code above to claim and initialize your capstone project workspace.'
+          customNote: 'Please use the team access code above to claim and initialize your capstone project workspace.',
+          projectTitle: createdProject?.title || title,
+          teamAccessCode: createdProject?.teamAccessCode || teamAccessCode,
+          department: createdProject?.department || department,
+          facultyGuide: createdProject?.facultyGuide || facultyGuide,
+          deadline: createdProject?.deadline || deadline
         })
       });
 
@@ -269,14 +274,8 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
         throw new Error(data.message || 'Failed to dispatch email');
       }
     } catch (err) {
-      console.warn('Backend email notice:', err.message);
-      setInviteSuccess(true);
-      setInviteSuccessMsg(`Invitation dispatched to ${targetEmail} from projectnexus151@gmail.com`);
-      setCreatedProject(prev => prev ? ({
-        ...prev,
-        invitedLeadEmail: targetEmail,
-        invitationSentAt: new Date()
-      }) : prev);
+      console.error('Email dispatch error:', err.message);
+      setInviteErrorMsg(err.message || 'Failed to dispatch email. Check connection.');
     } finally {
       setIsSendingInvite(false);
     }

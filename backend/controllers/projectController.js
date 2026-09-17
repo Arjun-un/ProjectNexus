@@ -213,6 +213,22 @@ exports.getProjects = async (req, res) => {
   }
 };
 
+// Safe project finder by MongoDB _id or custom projectId
+const findProjectByIdOrCustomId = async (id) => {
+  if (!id) return null;
+  const cleanId = String(id).trim();
+  if (cleanId.match(/^[0-9a-fA-F]{24}$/)) {
+    const proj = await Project.findById(cleanId);
+    if (proj) return proj;
+  }
+  return await Project.findOne({
+    $or: [
+      { projectId: cleanId.toUpperCase() },
+      { projectId: cleanId }
+    ]
+  });
+};
+
 /**
  * @route   GET /api/projects/:id
  * @desc    Get single project details by MongoDB ID or Project ID
@@ -221,15 +237,7 @@ exports.getProjects = async (req, res) => {
 exports.getProjectById = async (req, res) => {
   try {
     const { id } = req.params;
-
-    // Search by ObjectId or custom projectId
-    let project = null;
-    if (id.match(/^[0-9a-fA-F]{24}$/)) {
-      project = await Project.findById(id);
-    }
-    if (!project) {
-      project = await Project.findOne({ projectId: id.toUpperCase() });
-    }
+    const project = await findProjectByIdOrCustomId(id);
 
     if (!project) {
       return res.status(404).json({
@@ -384,7 +392,7 @@ exports.createProject = async (req, res) => {
 exports.regenerateAccessCode = async (req, res) => {
   try {
     const { id } = req.params;
-    const project = await Project.findById(id);
+    const project = await findProjectByIdOrCustomId(id);
 
     if (!project) {
       return res.status(404).json({
@@ -437,7 +445,7 @@ exports.regenerateAccessCode = async (req, res) => {
 exports.revokeAccessCode = async (req, res) => {
   try {
     const { id } = req.params;
-    const project = await Project.findById(id);
+    const project = await findProjectByIdOrCustomId(id);
 
     if (!project) {
       return res.status(404).json({
@@ -483,62 +491,65 @@ exports.revokeAccessCode = async (req, res) => {
 exports.sendProjectInvite = async (req, res) => {
   try {
     const { id } = req.params;
-    const { email, customNote } = req.body;
+    const {
+      email,
+      customNote,
+      projectTitle,
+      teamAccessCode,
+      department,
+      facultyGuide,
+      deadline
+    } = req.body;
 
-    let project = null;
-    if (id.match(/^[0-9a-fA-F]{24}$/)) {
-      project = await Project.findById(id);
-    }
-    if (!project) {
-      project = await Project.findOne({ projectId: id.toUpperCase() });
-    }
+    const project = await findProjectByIdOrCustomId(id);
 
-    if (!project) {
-      return res.status(404).json({
-        success: false,
-        message: 'Project not found'
-      });
-    }
-
-    const recipientEmail = (email && email.trim()) || project.invitedLeadEmail || project.team?.leader?.email;
+    const recipientEmail = (email && email.trim()) || project?.invitedLeadEmail || project?.team?.leader?.email;
     if (!recipientEmail) {
       return res.status(400).json({
         success: false,
-        message: 'Recipient email is required. Please specify an email address.'
+        message: 'Recipient email is required. Please specify a valid email address.'
       });
     }
+
+    const title = project?.title || projectTitle || 'Institutional Capstone Project';
+    const projId = project?.projectId || id || 'PRJ-NEXUS';
+    const accessCode = project?.teamAccessCode || teamAccessCode || 'NEXUS-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    const dept = project?.department || department || 'Engineering';
+    const guide = project?.facultyGuide || facultyGuide || 'Department Committee';
+    const targetDeadline = project?.deadline || deadline || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
     // Send email
     const emailResult = await sendProjectInvitationEmail({
       toEmail: recipientEmail.trim(),
-      projectTitle: project.title,
-      projectId: project.projectId,
-      teamAccessCode: project.teamAccessCode,
-      department: project.department,
-      facultyGuide: project.facultyGuide,
-      deadline: project.deadline,
+      projectTitle: title,
+      projectId: projId,
+      teamAccessCode: accessCode,
+      department: dept,
+      facultyGuide: guide,
+      deadline: targetDeadline,
       customNote
     });
 
-    project.invitedLeadEmail = recipientEmail.trim().toLowerCase();
-    project.invitationSentAt = new Date();
-    project.timeline.unshift({
-      title: 'Project Invitation Dispatched via Email',
-      description: `Access Code and workspace registration link emailed to ${recipientEmail.trim()}`,
-      timestamp: new Date(),
-      type: 'alert'
-    });
-
-    await project.save();
+    if (project) {
+      project.invitedLeadEmail = recipientEmail.trim().toLowerCase();
+      project.invitationSentAt = new Date();
+      project.timeline.unshift({
+        title: 'Project Invitation Dispatched via Email',
+        description: `Access Code and workspace registration link emailed to ${recipientEmail.trim()}`,
+        timestamp: new Date(),
+        type: 'alert'
+      });
+      await project.save();
+    }
 
     res.status(200).json({
       success: true,
       message: `Invitation link successfully dispatched to ${recipientEmail.trim()}`,
       data: {
-        projectId: project.projectId,
-        invitedLeadEmail: project.invitedLeadEmail,
-        invitationSentAt: project.invitationSentAt,
-        teamAccessCode: project.teamAccessCode,
+        projectId: projId,
+        invitedLeadEmail: recipientEmail.trim().toLowerCase(),
+        invitationSentAt: new Date(),
+        teamAccessCode: accessCode,
         emailResult
       }
     });
@@ -547,6 +558,128 @@ exports.sendProjectInvite = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to send project invitation',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @route   POST /api/projects/test-email
+ * @desc    Test SMTP email dispatch directly to any email address
+ * @access  Public / Admin
+ */
+exports.sendTestEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Recipient email is required.'
+      });
+    }
+
+    const emailResult = await sendProjectInvitationEmail({
+      toEmail: email.trim(),
+      projectTitle: 'ProjectNexus SMTP Live Verification Project',
+      projectId: 'NEXUS-TEST-001',
+      teamAccessCode: 'NEXUS-VERIFIED',
+      department: 'Computer Science & Engineering',
+      facultyGuide: 'Dr. System Administrator',
+      deadline: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+      customNote: 'This is a live test invitation dispatched via Gmail SMTP to verify end-to-end delivery.'
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Test email successfully dispatched to ${email.trim()}`,
+      emailResult
+    });
+  } catch (error) {
+    console.error('Error in sendTestEmail:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to dispatch test email'
+    });
+  }
+};
+
+/**
+ * @route   PUT /api/projects/:id/team
+ * @desc    Update project team details (leader, members, name, githubUrl)
+ * @access  Public / Team Lead
+ */
+exports.updateProjectTeam = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { teamName, leader, members, githubUrl } = req.body;
+
+    const project = await findProjectByIdOrCustomId(id);
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+    }
+
+    // Update team name if provided
+    if (teamName !== undefined) {
+      if (!project.team) project.team = {};
+      project.team.name = teamName.trim();
+    }
+
+    // Update leader if provided
+    if (leader) {
+      if (!project.team) project.team = {};
+      project.team.leader = {
+        name: leader.name ? leader.name.trim() : (project.team?.leader?.name || ''),
+        email: leader.email ? leader.email.trim().toLowerCase() : (project.team?.leader?.email || project.invitedLeadEmail || ''),
+        rollNo: leader.rollNo ? leader.rollNo.trim() : (project.team?.leader?.rollNo || ''),
+        role: leader.role ? leader.role.trim() : 'Team Lead',
+        githubUsername: leader.githubUsername ? leader.githubUsername.trim() : (project.team?.leader?.githubUsername || '')
+      };
+      if (leader.email) {
+        project.invitedLeadEmail = leader.email.trim().toLowerCase();
+      }
+    }
+
+    // Update members if provided
+    if (Array.isArray(members)) {
+      if (!project.team) project.team = {};
+      project.team.members = members.map(m => ({
+        name: (m.name || '').trim(),
+        email: (m.email || '').trim().toLowerCase(),
+        rollNo: (m.rollNo || '').trim(),
+        role: (m.role || 'Project Contributor').trim(),
+        githubUsername: (m.githubUsername || '').trim()
+      }));
+    }
+
+    // Update githubUrl if provided
+    if (githubUrl !== undefined) {
+      project.githubUrl = githubUrl.trim();
+    }
+
+    // Add timeline entry
+    project.timeline.unshift({
+      title: 'Team Directory & Repository Updated',
+      description: `Team roster updated (${(project.team?.members?.length || 0) + 1} members). ${project.githubUrl ? `Repository: ${project.githubUrl}` : ''}`,
+      timestamp: new Date(),
+      type: 'status_change'
+    });
+
+    await project.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Team details and repository updated successfully',
+      data: project
+    });
+  } catch (error) {
+    console.error('Error updating project team:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update team details',
       error: error.message
     });
   }

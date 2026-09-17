@@ -1,0 +1,1238 @@
+/* =====================================================================
+   TeamWorkspacePage.css
+   Dark sidebar + light workspace layout for ProjectNexus Team Workspace
+   ===================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* ── Root shell ── */
+.twp-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #0F172A;
+}
+
+/* ================================================================
+   SIDEBAR
+   ================================================================ */
+.twp-sidebar {
+  width: 230px;
+  min-width: 230px;
+  background: #0F172A;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255,255,255,0.07);
+  z-index: 20;
+  overflow: hidden;
+}
+
+/* Logo / brand */
+.twp-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 20px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  cursor: pointer;
+}
+.twp-sidebar-logo {
+  width: 34px;
+  height: 34px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(99,102,241,0.35);
+}
+.twp-sidebar-wordmark {
+  font-size: 15px;
+  font-weight: 800;
+  color: #f1f5f9;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.twp-sidebar-wordmark span { color: #818cf8; }
+.twp-sidebar-tagline {
+  font-size: 10px;
+  color: #475569;
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+/* Project switcher pill */
+.twp-project-pill {
+  margin: 14px 14px 0;
+  background: rgba(99,102,241,0.1);
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.twp-project-pill-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6366f1;
+  font-weight: 700;
+}
+.twp-project-pill-name {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-top: 2px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.twp-project-pill-id {
+  font-size: 10px;
+  color: #64748b;
+  font-family: 'Courier New', monospace;
+  margin-top: 1px;
+}
+
+/* Nav section */
+.twp-nav-section {
+  padding: 16px 10px 0;
+  flex: 1;
+  overflow-y: auto;
+}
+.twp-nav-section::-webkit-scrollbar { display: none; }
+
+.twp-nav-label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #334155;
+  font-weight: 700;
+  padding: 0 10px 6px;
+}
+
+.twp-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  margin-bottom: 1px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  transition: all 0.15s ease;
+  position: relative;
+}
+.twp-nav-item:hover {
+  color: #cbd5e1;
+  background: rgba(255,255,255,0.05);
+}
+.twp-nav-item.active {
+  color: #e2e8f0;
+  background: rgba(99,102,241,0.15);
+  font-weight: 600;
+}
+.twp-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 25%;
+  bottom: 25%;
+  width: 3px;
+  background: #6366f1;
+  border-radius: 0 2px 2px 0;
+}
+.twp-nav-item-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.twp-nav-item.active .twp-nav-item-icon { opacity: 1; }
+
+.twp-nav-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(239,68,68,0.2);
+  color: #f87171;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.twp-nav-badge--blue {
+  background: rgba(99,102,241,0.2);
+  color: #a5b4fc;
+}
+
+/* Sidebar footer */
+.twp-sidebar-footer {
+  padding: 12px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-radius: 0;
+}
+.twp-sidebar-footer:hover { background: rgba(255,255,255,0.04); }
+.twp-user-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.twp-user-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #cbd5e1;
+  line-height: 1.2;
+}
+.twp-user-role {
+  font-size: 10px;
+  color: #475569;
+}
+
+/* ================================================================
+   MAIN AREA
+   ================================================================ */
+.twp-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #F8FAFC;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Top bar */
+.twp-topbar {
+  height: 58px;
+  min-height: 58px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 12px;
+  z-index: 10;
+}
+.twp-topbar-breadcrumb {
+  font-size: 12.5px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+}
+.twp-topbar-breadcrumb span { color: #0f172a; font-weight: 700; }
+.twp-topbar-sep { color: #cbd5e1; }
+
+.twp-topbar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  padding: 7px 12px;
+  font-size: 12.5px;
+  color: #94a3b8;
+  cursor: text;
+  width: 200px;
+  transition: all 0.2s ease;
+}
+.twp-topbar-search:focus-within {
+  border-color: #6366f1;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+}
+.twp-topbar-search input {
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 12.5px;
+  color: #334155;
+  width: 100%;
+  font-family: inherit;
+}
+.twp-topbar-search input::placeholder { color: #94a3b8; }
+
+.twp-topbar-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.15s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+.twp-topbar-icon-btn:hover { background: #e2e8f0; color: #334155; }
+.twp-topbar-notif-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 1.5px solid #fff;
+}
+.twp-topbar-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.twp-topbar-user:hover { background: #e2e8f0; }
+.twp-topbar-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.twp-topbar-username {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* Content scroll area */
+.twp-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 28px 40px;
+}
+.twp-content::-webkit-scrollbar { width: 6px; }
+.twp-content::-webkit-scrollbar-track { background: transparent; }
+.twp-content::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+/* ================================================================
+   PROJECT HEADER CARD — "Mission Control"
+   ================================================================ */
+.twp-header-card {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+  border-radius: 18px;
+  padding: 28px 28px 24px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(99,102,241,0.15), 0 2px 8px rgba(0,0,0,0.12);
+}
+.twp-header-card::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -40px;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%);
+  pointer-events: none;
+}
+.twp-header-card::after {
+  content: '';
+  position: absolute;
+  bottom: -40px;
+  right: 100px;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.twp-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.twp-header-left { flex: 1; min-width: 0; }
+
+.twp-header-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.twp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.twp-badge--status-active {
+  background: rgba(34,197,94,0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34,197,94,0.3);
+}
+.twp-badge--status-atrisk {
+  background: rgba(245,158,11,0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245,158,11,0.3);
+}
+.twp-badge--category {
+  background: rgba(99,102,241,0.15);
+  color: #a5b4fc;
+  border: 1px solid rgba(99,102,241,0.25);
+}
+.twp-badge--version {
+  background: rgba(139,92,246,0.15);
+  color: #c4b5fd;
+  border: 1px solid rgba(139,92,246,0.25);
+}
+
+.twp-header-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  margin: 0 0 4px;
+}
+.twp-header-id {
+  font-size: 12px;
+  color: #64748b;
+  font-family: 'Courier New', monospace;
+  font-weight: 500;
+}
+
+.twp-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.twp-header-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+.twp-header-meta-item strong { color: #e2e8f0; font-weight: 600; }
+
+/* Right stats cluster */
+.twp-header-right {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Health score ring */
+.twp-health-ring {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  flex-shrink: 0;
+}
+.twp-health-ring svg { transform: rotate(-90deg); }
+.twp-health-ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.twp-health-pct {
+  font-size: 18px;
+  font-weight: 800;
+  color: #22c55e;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.twp-health-text {
+  font-size: 9px;
+  color: #4ade80;
+  font-weight: 600;
+  text-align: center;
+  margin-top: 2px;
+}
+
+/* Deadline card */
+.twp-deadline-card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 14px 18px;
+  min-width: 130px;
+  text-align: center;
+}
+.twp-deadline-days {
+  font-size: 26px;
+  font-weight: 800;
+  color: #fbbf24;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.twp-deadline-label { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+.twp-deadline-date { font-size: 11px; color: #64748b; font-family: monospace; margin-top: 4px; }
+
+/* ================================================================
+   OVERVIEW GRID
+   ================================================================ */
+.twp-overview-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  margin-bottom: 24px;
+  align-items: start;
+}
+.twp-overview-left { display: flex; flex-direction: column; gap: 16px; }
+.twp-overview-right { display: flex; flex-direction: column; gap: 16px; }
+
+/* Surface cards */
+.twp-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+}
+.twp-card-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.twp-card-title-icon { color: #6366f1; }
+
+/* Description text */
+.twp-desc-text {
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.7;
+}
+
+/* Tech stack chips */
+.twp-tech-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 14px;
+}
+.twp-tech-chip {
+  padding: 4px 11px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #4338ca;
+  font-family: 'Courier New', monospace;
+}
+
+/* Current milestone stepper */
+.twp-milestone-track {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-top: 14px;
+}
+.twp-milestone-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+.twp-milestone-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 11px;
+  left: 50%;
+  right: -50%;
+  height: 2px;
+  background: #e2e8f0;
+  z-index: 0;
+}
+.twp-milestone-step.done::after { background: #22c55e; }
+.twp-milestone-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  z-index: 1;
+  position: relative;
+}
+.twp-milestone-dot--done { background: #22c55e; color: #fff; }
+.twp-milestone-dot--active { background: #6366f1; color: #fff; box-shadow: 0 0 0 4px rgba(99,102,241,0.2); }
+.twp-milestone-dot--future { background: #e2e8f0; color: #94a3b8; }
+.twp-milestone-lbl {
+  font-size: 9.5px;
+  color: #94a3b8;
+  margin-top: 5px;
+  text-align: center;
+  max-width: 60px;
+  line-height: 1.3;
+}
+.twp-milestone-lbl.active-lbl { color: #4338ca; font-weight: 600; }
+
+/* Team card */
+.twp-team-lead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.06));
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: 12px;
+  margin-bottom: 10px;
+}
+.twp-team-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.twp-team-avatar--lead { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; }
+.twp-team-avatar--member { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
+
+.twp-team-name { font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.2; }
+.twp-team-role { font-size: 10.5px; color: #6366f1; font-weight: 600; }
+.twp-team-roll { font-size: 10px; color: #94a3b8; font-family: monospace; }
+
+.twp-team-member {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid #f1f5f9;
+  background: #fafafa;
+  margin-bottom: 6px;
+}
+
+/* Quick stats */
+.twp-quick-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+.twp-stat-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.twp-stat-val {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.twp-stat-val--green { color: #16a34a; }
+.twp-stat-val--blue { color: #2563eb; }
+.twp-stat-lbl { font-size: 10.5px; color: #94a3b8; font-weight: 500; margin-top: 3px; }
+
+/* Progress bar (light) */
+.twp-prog-bar-wrap {
+  background: #e2e8f0;
+  border-radius: 99px;
+  height: 6px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+.twp-prog-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ================================================================
+   REPOSITORY TRACKING — FEATURED CARD
+   ================================================================ */
+.twp-repo-card {
+  background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+  border: 1.5px solid #c7d2fe;
+  border-radius: 18px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.twp-repo-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa);
+  border-radius: 18px 18px 0 0;
+}
+
+.twp-repo-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.twp-repo-header-left { display: flex; align-items: center; gap: 14px; }
+.twp-repo-icon-wrap {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+  flex-shrink: 0;
+}
+.twp-repo-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #1e1b4b;
+  letter-spacing: -0.02em;
+}
+.twp-repo-subtitle { font-size: 12.5px; color: #6366f1; font-weight: 500; margin-top: 2px; }
+
+/* Connection status */
+.twp-conn-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.twp-conn-status--disconnected {
+  background: rgba(245,158,11,0.12);
+  border: 1px solid rgba(245,158,11,0.3);
+  color: #d97706;
+}
+.twp-conn-status--connected {
+  background: rgba(34,197,94,0.1);
+  border: 1px solid rgba(34,197,94,0.3);
+  color: #16a34a;
+}
+.twp-conn-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.twp-conn-dot--amber { background: #f59e0b; }
+.twp-conn-dot--green { background: #22c55e; animation: twpPulse 2s infinite; }
+
+@keyframes twpPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* URL field */
+.twp-url-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.twp-url-field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border: 1.5px solid #c7d2fe;
+  border-radius: 10px;
+  padding: 0 14px;
+  height: 42px;
+  gap: 10px;
+  min-width: 0;
+}
+.twp-url-field-icon { color: #6366f1; flex-shrink: 0; width: 14px; height: 14px; }
+.twp-url-text {
+  font-family: 'Courier New', monospace;
+  font-size: 12.5px;
+  color: #1e1b4b;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: all;
+}
+.twp-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 16px;
+  height: 42px;
+  background: #4338ca;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(67,56,202,0.3);
+}
+.twp-copy-btn:hover { background: #3730a3; box-shadow: 0 4px 12px rgba(67,56,202,0.4); }
+.twp-copy-btn--copied { background: #16a34a; box-shadow: 0 2px 8px rgba(22,163,74,0.3); }
+
+/* Instructions expandable */
+.twp-instructions-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #4338ca;
+  padding: 0;
+  transition: color 0.15s;
+  margin-bottom: 10px;
+}
+.twp-instructions-toggle:hover { color: #3730a3; }
+
+.twp-instructions-body {
+  background: #fff;
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.twp-instruction-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+.twp-instruction-step:last-child { border-bottom: none; padding-bottom: 0; }
+.twp-step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ede9fe;
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.twp-step-text { font-size: 12.5px; color: #334155; line-height: 1.5; }
+.twp-step-text code {
+  background: #ede9fe;
+  color: #4338ca;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 11.5px;
+}
+
+.twp-regen-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11.5px;
+  color: #94a3b8;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: color 0.15s;
+}
+.twp-regen-btn:hover { color: #6366f1; text-decoration: underline; }
+
+/* ================================================================
+   ACTIVITY FEED
+   ================================================================ */
+.twp-activity-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px 24px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.twp-activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.twp-activity-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.twp-activity-title-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.twp-view-all-btn {
+  font-size: 12px;
+  color: #6366f1;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.twp-view-all-btn:hover { text-decoration: underline; }
+
+.twp-activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.twp-activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid #f1f5f9;
+  position: relative;
+}
+.twp-activity-item:last-child { border-bottom: none; padding-bottom: 0; }
+
+.twp-act-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.twp-act-icon--task { background: #ede9fe; color: #6366f1; }
+.twp-act-icon--update { background: #dcfce7; color: #16a34a; }
+.twp-act-icon--repo { background: #dbeafe; color: #2563eb; }
+.twp-act-icon--handover { background: #fce7f3; color: #db2777; }
+.twp-act-icon--admin { background: #fff7ed; color: #ea580c; }
+
+.twp-act-body { flex: 1; min-width: 0; }
+.twp-act-user { font-size: 12.5px; font-weight: 700; color: #0f172a; }
+.twp-act-detail { font-size: 12px; color: #64748b; margin-top: 2px; line-height: 1.5; }
+.twp-act-time { font-size: 11px; color: #94a3b8; font-family: monospace; white-space: nowrap; flex-shrink: 0; margin-top: 3px; }
+
+/* ================================================================
+   INNER CONTENT PANEL (for sidebar nav sub-views)
+   ================================================================ */
+.twp-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.twp-section-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+.twp-section-sub { font-size: 12.5px; color: #64748b; margin-top: 3px; }
+
+/* ================================================================
+   KANBAN (inside workspace)
+   ================================================================ */
+.twp-kanban-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.twp-kanban-col {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  min-height: 200px;
+}
+.twp-kanban-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.twp-kanban-col-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.twp-kanban-col-label--todo { color: #64748b; }
+.twp-kanban-col-label--inprog { color: #6366f1; }
+.twp-kanban-col-label--review { color: #d97706; }
+.twp-kanban-col-label--done { color: #16a34a; }
+.twp-kanban-count {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+  background: #e2e8f0;
+  color: #334155;
+  padding: 1px 7px;
+  border-radius: 20px;
+}
+
+.twp-kanban-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: box-shadow 0.15s ease;
+  cursor: default;
+}
+.twp-kanban-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.twp-kanban-card-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+.twp-kanban-card-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.twp-kanban-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+}
+.twp-kanban-card-assignee {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #64748b;
+}
+.twp-kanban-assignee-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #6366f1;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.twp-priority-chip {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+.twp-priority-chip--high { background: #fee2e2; color: #ef4444; }
+.twp-priority-chip--medium { background: #fef3c7; color: #d97706; }
+.twp-priority-chip--low { background: #f0fdf4; color: #16a34a; }
+
+/* Status select in kanban card */
+.twp-kanban-status-select {
+  font-size: 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 2px 6px;
+  color: #334155;
+  outline: none;
+  cursor: pointer;
+}
+
+/* ================================================================
+   MILESTONE TIMELINE (sub-view)
+   ================================================================ */
+.twp-milestone-item {
+  display: flex;
+  gap: 18px;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  margin-bottom: 12px;
+  align-items: flex-start;
+}
+.twp-milestone-idx {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.twp-milestone-idx--done { background: #dcfce7; color: #16a34a; }
+.twp-milestone-idx--active { background: #ede9fe; color: #6366f1; }
+.twp-milestone-idx--future { background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; }
+
+.twp-milestone-body { flex: 1; min-width: 0; }
+.twp-milestone-name { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+.twp-milestone-feedback {
+  font-size: 12px;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  line-height: 1.6;
+}
+.twp-milestone-meta { font-size: 11.5px; color: #94a3b8; margin-top: 6px; font-family: monospace; }
+
+.twp-milestone-prog-wrap {
+  width: 120px;
+  flex-shrink: 0;
+  text-align: right;
+}
+.twp-milestone-pct { font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: -0.03em; }
+
+/* ================================================================
+   ACTION BUTTON (light)
+   ================================================================ */
+.twp-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  background: #4338ca;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(67,56,202,0.25);
+  font-family: inherit;
+}
+.twp-btn-primary:hover { background: #3730a3; box-shadow: 0 4px 12px rgba(67,56,202,0.35); transform: translateY(-1px); }
+
+.twp-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  background: transparent;
+  color: #6366f1;
+  border: 1px solid #c7d2fe;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+.twp-btn-ghost:hover { background: #ede9fe; }
+
+/* ================================================================
+   RESPONSIVE
+   ================================================================ */
+@media (max-width: 1100px) {
+  .twp-overview-grid { grid-template-columns: 1fr; }
+  .twp-kanban-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 768px) {
+  .twp-sidebar { display: none; }
+  .twp-kanban-grid { grid-template-columns: 1fr; }
+  .twp-header-right { display: none; }
+  .twp-topbar-search { display: none; }
+}
+
+/* ================================================================
+   ANIMATIONS
+   ================================================================ */
+@keyframes twpFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.twp-fade-up { animation: twpFadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }

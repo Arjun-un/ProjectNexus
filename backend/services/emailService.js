@@ -7,15 +7,17 @@
 const nodemailer = require('nodemailer');
 
 const getTransporter = () => {
-  const user = process.env.EMAIL_USER || 'projectnexus151@gmail.com';
-  const pass = process.env.EMAIL_PASS;
+  const user = (process.env.EMAIL_USER || 'projectnexus151@gmail.com').trim();
+  const pass = (process.env.EMAIL_PASS || '').trim();
 
-  if (pass && pass.trim() !== '') {
+  if (pass && pass !== '') {
     return nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
-        user: user.trim(),
-        pass: pass.trim()
+        user,
+        pass
       }
     });
   }

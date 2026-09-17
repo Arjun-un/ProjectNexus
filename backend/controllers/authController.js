@@ -61,35 +61,137 @@ const loginUser = async (req, res, next) => {
 };
 
 /**
- * @desc    Get authenticated user's profile (session verification)
- * @route   GET /api/auth/me
- * @access  Private (requires JWT)
+ * @desc    Redeem Team Access Code to join/claim project workspace
+ * @route   POST /api/auth/redeem-invite
+ * @access  Public
  */
-const getMe = async (req, res, next) => {
-  try {
-    // req.user is set by the protect middleware
-    const user = await User.findById(req.user._id);
+const Project = require('../models/Project');
 
-    if (!user) {
-      res.status(404);
-      return next(new Error('User not found'));
+const redeemInvite = async (req, res, next) => {
+  try {
+    const { accessCode, projectId } = req.body;
+
+    if (!accessCode || !accessCode.trim()) {
+      res.status(400);
+      return next(new Error('Please enter the team access code.'));
     }
+
+    const cleanCode = accessCode.trim().toUpperCase();
+    const cleanProjectId = projectId ? projectId.trim().toUpperCase() : null;
+
+    let project = null;
+
+    if (cleanProjectId) {
+      project = await Project.findOne({
+        teamAccessCode: cleanCode,
+        projectId: cleanProjectId
+      });
+    }
+
+    if (!project) {
+      project = await Project.findOne({ teamAccessCode: cleanCode });
+    }
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid access code. Please check your invitation email or contact your administrator.'
+      });
+    }
+
+    if (cleanProjectId && project.projectId !== cleanProjectId) {
+      return res.status(400).json({
+        success: false,
+        message: `Access code is valid, but belongs to project ${project.projectId} instead of ${cleanProjectId}.`
+      });
+    }
+
+    if (project.accessCodeStatus === 'revoked') {
+      return res.status(403).json({
+        success: false,
+        message: 'This access code has been deactivated or revoked by the administrator.'
+      });
+    }
+
+    // Mark access code claimed
+    project.isAccessCodeClaimed = true;
+    project.accessCodeStatus = 'claimed';
+    
+    // Add timeline log
+    const hasClaimTimeline = (project.timeline || []).some(t => t.type === 'team_join');
+    if (!hasClaimTimeline) {
+      project.timeline.unshift({
+        title: 'Team Access Code Redeemed',
+        description: `Team workspace initialized via access code ${cleanCode}`,
+        timestamp: new Date(),
+        type: 'team_join'
+      });
+    }
+
+    await project.save();
+
+    // Generate JWT token
+    const token = generateToken(project._id, 'lead');
 
     res.status(200).json({
       success: true,
+      message: 'Access code verified successfully! Welcome to your project workspace.',
+      token,
       user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        department: user.department,
-        isActive: user.isActive
+        id: project._id,
+        name: project.team?.leader?.name || (project.invitedLeadEmail ? project.invitedLeadEmail.split('@')[0] : 'Team Lead'),
+        email: project.team?.leader?.email || project.invitedLeadEmail || 'teamlead@projectnexus.edu',
+        role: 'lead',
+        department: project.department
+      },
+      project: {
+        id: project.projectId,
+        projectId: project.projectId,
+        title: project.title,
+        category: project.category,
+        department: project.department,
+        academicYear: project.academicYear,
+        facultyGuide: project.facultyGuide,
+        deadline: project.deadline,
+        priority: project.priority,
+        description: project.description,
+        techStack: project.techStack,
+        componentsRequired: project.componentsRequired,
+        teamAccessCode: project.teamAccessCode,
+        isAccessCodeClaimed: project.isAccessCodeClaimed,
+        status: project.status,
+        health: project.health,
+        healthScore: project.healthScore,
+        progress: project.progress,
+        currentMilestone: project.currentMilestone,
+        team: project.team,
+        timeline: project.timeline
       }
     });
-
   } catch (error) {
     next(error);
   }
 };
 
-module.exports = { loginUser, getMe };
+/**
+ * @desc    Get current logged in user
+ * @route   GET /api/auth/me
+ * @access  Private
+ */
+const getMe = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      res.status(404);
+      return next(new Error('User not found'));
+    }
+    res.status(200).json({
+      success: true,
+      user
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { loginUser, getMe, redeemInvite };
