@@ -380,6 +380,12 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     setProjects(prev => [newProject, ...prev]);
   };
 
+  const handleDeleteProject = (projectId) => {
+    setProjects(prev => prev.filter(p => p.projectId !== projectId && p._id !== projectId));
+    // If we're currently viewing this project, go back to the list
+    if (selectedProjectId === projectId) setSelectedProjectId(null);
+  };
+
   const handleInviteSent = (recipientEmail) => {
     setProjects(prev => prev.map(p => {
       if (sendInviteProject && (p.projectId === sendInviteProject.projectId || p._id === sendInviteProject._id)) {
@@ -829,7 +835,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               onCopyCode={handleCopyCode}
               getCategoryBadge={getCategoryBadge}
               getStatusBadge={getStatusBadge}
-              getHealthBadge={getHealthBadge}
+              onDeleteProject={handleDeleteProject}
             />
           ) : currentSection === 'teams' ? (
             <div className="space-y-6 max-w-7xl mx-auto">
