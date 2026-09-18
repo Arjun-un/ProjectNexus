@@ -1,6 +1,9 @@
 const crypto = require('crypto');
 const Project = require('../models/Project');
+const RepositoryEvent = require('../models/RepositoryEvent');
 const { sendProjectInvitationEmail } = require('../services/emailService');
+const { parseRepoUrl, validateAndBackfillRepo } = require('../services/githubService');
+const { recalculateHealthScore } = require('../services/healthService');
 
 // Helper to get department code
 const getDepartmentCode = (dept) => {
@@ -684,4 +687,245 @@ exports.updateProjectTeam = async (req, res) => {
     });
   }
 };
+
+/**
+ * @route   POST /api/projects/:id/github/generate-webhook
+ * @desc    Validate GitHub repo, backfill stats, generate per-project secret & unique webhook URL
+ * @access  Private (Team Lead / Admin)
+ */
+exports.generateGithubWebhook = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { repoUrl } = req.body;
+
+    const cleanId = String(id).trim();
+    let query;
+    if (cleanId.match(/^[0-9a-fA-F]{24}$/)) {
+      query = { _id: cleanId };
+    } else {
+      query = {
+        $or: [
+          { projectId: cleanId.toUpperCase() },
+          { projectId: cleanId }
+        ]
+      };
+    }
+
+    const project = await Project.findOne(query).select('+githubIntegration.webhookSecret');
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+    }
+
+    const targetUrl = repoUrl || project.githubIntegration?.repoUrl || project.githubUrl;
+    if (!targetUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Repository URL is required (e.g. https://github.com/organization/repository)'
+      });
+    }
+
+    // 1. Parse repository URL
+    const parsed = parseRepoUrl(targetUrl);
+    if (!parsed) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid GitHub repository URL format. Please use https://github.com/:owner/:repo'
+      });
+    }
+
+    // 2. Validate repository exists and is accessible + backfill stats
+    const validation = await validateAndBackfillRepo(parsed.owner, parsed.repo);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: validation.error
+      });
+    }
+
+    // 3. Generate cryptographically random 32-byte HMAC secret
+    const webhookSecret = crypto.randomBytes(32).toString('hex');
+
+    // 4. Update project's githubIntegration
+    project.githubUrl = parsed.cleanUrl;
+    project.githubIntegration = {
+      isConnected: true,
+      repoUrl: parsed.cleanUrl,
+      repoOwner: parsed.owner,
+      repoName: parsed.repo,
+      webhookSecret: webhookSecret,
+      connectedAt: new Date(),
+      lastEventAt: new Date(),
+      lastCommitSha: validation.lastCommitSha || '',
+      totalCommits: validation.totalCommits || 0,
+      totalPullRequests: 0,
+      contributors: validation.contributors || []
+    };
+
+    project.lastActivityDate = new Date();
+
+    // 5. Add timeline record
+    project.timeline.unshift({
+      title: 'GitHub Repository Linked',
+      description: `Linked to ${parsed.owner}/${parsed.repo}. Webhook telemetry tracking initialized.`,
+      timestamp: new Date(),
+      type: 'repo_activity'
+    });
+
+    await project.save();
+
+    // 6. Recalculate health score with repository link factored in
+    await recalculateHealthScore(project._id);
+
+    // 7. Construct Webhook Payload URL
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    const host = req.get('host') || 'localhost:5000';
+    const webhookUrl = `${protocol}://${host}/api/webhooks/github/${project.projectId || project._id}`;
+
+    // Return the secret ONCE in this response only
+    res.status(200).json({
+      success: true,
+      message: 'GitHub webhook and tracking credentials generated successfully',
+      data: {
+        projectId: project.projectId,
+        repoUrl: parsed.cleanUrl,
+        repoOwner: parsed.owner,
+        repoName: parsed.repo,
+        webhookUrl,
+        webhookSecret, // ONE-TIME EXPOSURE: user must copy to GitHub settings
+        totalCommits: project.githubIntegration.totalCommits,
+        contributorsCount: project.githubIntegration.contributors.length,
+        setupSteps: [
+          'Go to your GitHub repository → Settings → Webhooks → Add webhook',
+          `In Payload URL, paste: ${webhookUrl}`,
+          'Set Content type to application/json',
+          'In Secret, paste the generated secret key (shown above)',
+          'Under Which events, select "Just the push event" and "Pull requests"',
+          'Click Add webhook. ProjectNexus will immediately ingest live code telemetry.'
+        ]
+      }
+    });
+  } catch (error) {
+    console.error('Error generating GitHub webhook:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate GitHub webhook credentials',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @route   GET /api/projects/:id/github/events
+ * @desc    Get latest repository events feed (push, PR, release) for project
+ * @access  Public / Authenticated
+ */
+exports.getGithubEvents = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const cleanId = String(id).trim();
+    let query;
+    if (cleanId.match(/^[0-9a-fA-F]{24}$/)) {
+      query = { _id: cleanId };
+    } else {
+      query = {
+        $or: [
+          { projectId: cleanId.toUpperCase() },
+          { projectId: cleanId }
+        ]
+      };
+    }
+
+    const project = await Project.findOne(query);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+    }
+
+    const events = await RepositoryEvent.find({ projectId: project._id })
+      .sort({ receivedAt: -1 })
+      .limit(25)
+      .populate('linkedTaskId', 'taskId title status')
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      count: events.length,
+      data: events
+    });
+  } catch (error) {
+    console.error('Error fetching repository events:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch repository events',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @route   POST /api/projects/:id/github/disconnect
+ * @desc    Disconnect GitHub repository and revoke webhook secret
+ * @access  Private (Team Lead / Admin)
+ */
+exports.disconnectGithub = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const cleanId = String(id).trim();
+    let query;
+    if (cleanId.match(/^[0-9a-fA-F]{24}$/)) {
+      query = { _id: cleanId };
+    } else {
+      query = {
+        $or: [
+          { projectId: cleanId.toUpperCase() },
+          { projectId: cleanId }
+        ]
+      };
+    }
+
+    const project = await Project.findOne(query);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+    }
+
+    if (project.githubIntegration) {
+      project.githubIntegration.isConnected = false;
+      project.githubIntegration.webhookSecret = undefined;
+    }
+
+    project.timeline.unshift({
+      title: 'GitHub Repository Disconnected',
+      description: 'GitHub webhook tracking disconnected by project administrators.',
+      timestamp: new Date(),
+      type: 'alert'
+    });
+
+    await project.save();
+    await recalculateHealthScore(project._id);
+
+    res.status(200).json({
+      success: true,
+      message: 'GitHub repository tracking disconnected successfully',
+      data: project
+    });
+  } catch (error) {
+    console.error('Error disconnecting GitHub:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to disconnect GitHub',
+      error: error.message
+    });
+  }
+};
+
 
