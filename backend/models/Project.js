@@ -1,18 +1,39 @@
 const mongoose = require('mongoose');
 
 const memberSchema = new mongoose.Schema({
+  // Reference to the User doc — null until invite is accepted
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
   name: { type: String, trim: true },
   email: { type: String, trim: true, lowercase: true },
+  usn: { type: String, trim: true, uppercase: true, default: '' },
+  roleTitle: { type: String, trim: true, default: '' },
+  // Legacy fields — kept for backward compat
   rollNo: { type: String, trim: true, default: '' },
   role: { type: String, trim: true, default: 'Project Contributor' },
-  githubUsername: { type: String, trim: true, default: '' }
+  githubUsername: { type: String, trim: true, default: '' },
+  // Invitation lifecycle
+  status: {
+    type: String,
+    enum: ['pending', 'active'],
+    default: 'pending'
+  },
+  invitedAt: { type: Date, default: Date.now },
+  joinedAt: { type: Date, default: null }
 }, { _id: false });
 
 const teamSchema = new mongoose.Schema({
   name: { type: String, default: '' },
   leader: {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     name: { type: String, default: '' },
-    email: { type: String, default: '' },
+    email: { type: String, default: '', lowercase: true, trim: true },
+    usn: { type: String, default: '', uppercase: true, trim: true },
+    roleTitle: { type: String, default: '' },
+    // Legacy fields
     rollNo: { type: String, default: '' },
     role: { type: String, default: 'Team Lead' },
     githubUsername: { type: String, default: '' }
@@ -26,7 +47,7 @@ const timelineEventSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now },
   type: {
     type: String,
-    enum: ['creation', 'team_join', 'milestone', 'alert', 'status_change', 'handover'],
+    enum: ['creation', 'team_join', 'milestone', 'alert', 'status_change', 'handover', 'repo_activity'],
     default: 'creation'
   }
 }, { _id: true });
@@ -101,6 +122,27 @@ const projectSchema = new mongoose.Schema({
     type: String,
     default: '',
     trim: true
+  },
+  githubIntegration: {
+    isConnected: { type: Boolean, default: false, index: true },
+    repoUrl: { type: String, default: '', trim: true },
+    repoOwner: { type: String, default: '', trim: true },
+    repoName: { type: String, default: '', trim: true },
+    webhookSecret: { type: String, select: false },
+    connectedAt: { type: Date },
+    lastEventAt: { type: Date },
+    lastCommitSha: { type: String, default: '' },
+    totalCommits: { type: Number, default: 0 },
+    totalPullRequests: { type: Number, default: 0 },
+    contributors: [{
+      name: { type: String, default: '' },
+      email: { type: String, default: '', lowercase: true, trim: true },
+      githubUsername: { type: String, default: '', trim: true },
+      commitCount: { type: Number, default: 0 },
+      linesAdded: { type: Number, default: 0 },
+      linesRemoved: { type: Number, default: 0 },
+      lastCommitAt: { type: Date }
+    }]
   },
   // Team access & claim state
   teamAccessCode: {

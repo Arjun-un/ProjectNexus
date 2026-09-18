@@ -29,6 +29,24 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  // USN / Student ID — e.g. "CS24B041"
+  usn: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    default: ''
+  },
+  // Specialization / role tag — e.g. "Frontend & Edge UI Developer"
+  roleTitle: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  // Derived initials stored for fast avatar rendering (e.g. "PR")
+  avatarInitials: {
+    type: String,
+    default: ''
+  },
   department: {
     type: String,
     trim: true
@@ -41,11 +59,19 @@ const userSchema = new mongoose.Schema({
   timestamps: true // Adds createdAt and updatedAt automatically
 });
 
-// Hash password before saving
+// Auto-derive avatarInitials before saving if name is set
 userSchema.pre('save', async function() {
+  // Derive initials from name whenever name is modified
+  if (this.isModified('name') && this.name) {
+    const parts = this.name.trim().split(/\s+/);
+    this.avatarInitials = parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : parts[0].slice(0, 2).toUpperCase();
+  }
+
   // Only hash the password if it has been modified (or is new)
   if (!this.isModified('passwordHash')) return;
-  
+
   const salt = await bcrypt.genSalt(12);
   this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
 });
