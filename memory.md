@@ -327,34 +327,23 @@ Base URL: `http://localhost:5000/api`
 
 ## 8. SESSION LOG — 2026-09-17
 
-- **Step 15 — Gmail SMTP Configuration (2-Step Verification)**:
-  - Gmail account `projectnexus151@gmail.com` has 2-Step Verification enabled.
-  - Instructed user to generate a **16-character Google App Password** at `myaccount.google.com/apppasswords`.
-  - App Password added to `backend/.env` as `EMAIL_PASS=yfmvvcnegzasdpyy` (16 chars).
-  - Ran SMTP live verification: `transporter.verify()` → **SUCCESS** — Gmail SMTP fully connected and ready.
+- **Gmail SMTP Configuration**: Configured Gmail SMTP with an App Password and verified live mail delivery readiness.
+- **Email Service Architecture Audit**: Verified `backend/services/emailService.js` and wired `POST /api/projects/:id/send-invite` to send project invitation emails.
+- **Send Invitation Error Handling**: Replaced silent error handling in `SendInviteModal.jsx` with real user-facing error feedback.
+- **Admin Authentication**: Configured MongoDB Atlas backed admin authentication with bcrypt password hashing and idempotent admin seeding script.
 
-- **Step 16 — Email Service Architecture Audit**:
-  - `backend/services/emailService.js`: Fully implemented (289 lines) with rich HTML email template for Team Lead invitations.
-  - `getTransporter()`: Returns real Gmail SMTP transporter when `EMAIL_PASS` is set; returns `null` (simulation mode) when empty.
-  - `sendProjectInvitationEmail()`: Sends project details, access code, and direct workspace join link.
-  - Email route: `POST /api/projects/:id/send-invite` → `sendProjectInvite` controller → `sendProjectInvitationEmail` service. ✅ Fully wired end-to-end.
+---
 
-- **Step 17 — Send Invitation Bug Fix (`SendInviteModal.jsx`)**:
-  - **Root cause identified**: The `catch` block in `SendInviteModal.jsx` was a "seamless demo fallback" that silently swallowed all SMTP/network errors and called `setIsSuccess(true)` regardless — making the button appear to work even when it failed.
-  - **Fix applied**: Replaced the fake-success catch block with real error display: `setError(err.message || 'Could not reach the server...')`.
-  - Backend was also restarted (it had stalled on initial MongoDB connection). After restart: `🚀 Server running on port 5000` + `✅ MongoDB Connected`.
-  - **Current status**: Backend live, SMTP live, send-invite route fully functional.
+## 9. SESSION LOG — 2026-09-18
 
-- **Step 18 — Admin Login Credentials (MongoDB-Backed)**:
-  - Admin email/password are stored in and verified against **MongoDB Atlas** (`projectnexus` database, `users` collection).
-  - Password stored as bcrypt hash (12 salt rounds) via `User.pre('save')` hook.
-  - Default admin seeded via `node scripts/seedAdmin.js`: `admin@projectnexus.edu` / `Admin@123`.
-  - Seed script is idempotent — running it again when admin exists logs "already exists" and makes no changes.
+- **Backend Environment & Server Setup**:
+  - Restored backend environment configuration (`.env`) for MongoDB Atlas, JWT authentication, and SMTP mailing services.
+  - Installed and verified all core backend dependencies, adding `axios` (for GitHub REST API interactions) and `express-rate-limit` (for endpoint security).
+  - Launched and verified the backend Express + Nodemon API server on port 5000 with healthy status check.
 
-### Current Running Services (Session 2026-09-17)
-| Service | Port | Status |
+### Current Running Services
+| Service | Target / Port | Status |
 |---|---|---|
-| Frontend (Vite + React 19) | `http://localhost:5173` | ✅ Running |
 | Backend (Express + Nodemon) | `http://localhost:5000` | ✅ Running |
-| MongoDB Atlas | Cloud | ✅ Connected |
-| Gmail SMTP (Nodemailer) | `smtp.gmail.com` | ✅ Verified |
+| MongoDB Atlas | Cloud Database | ✅ Connected |
+| Health Check | `GET /api/health` | ✅ Healthy |
