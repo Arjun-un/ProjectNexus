@@ -127,41 +127,6 @@ const INITIAL_PROJECTS = [
   },
   {
     _id: 'p3',
-    projectId: 'MECH-2026-077',
-    title: 'Automated 5-Axis Robotic Arm for Surface SMD Soldering',
-    category: 'Hardware',
-    department: 'Mechanical Engineering',
-    academicYear: '2025-2026',
-    facultyGuide: 'Prof. David Vance',
-    deadline: '2026-05-20',
-    priority: 'Medium',
-    description: 'Precision inverse kinematics mechanical arm with computer vision guidance for micro-soldering dense PCB surface mount ICs.',
-    componentsRequired: ['NEMA 17 Steppers (x5)', 'TMC2209 Drivers', '3D Carbon-Nylon Joints', 'Stereo Microscope Camera'],
-    labAssigned: 'Robotics Fabrication & Mechatronics Bay 2',
-    teamAccessCode: 'NEXUS-8M2Y',
-    isAccessCodeClaimed: false,
-    accessCodeStatus: 'active',
-    invitedLeadEmail: 'aravind.mech@projectnexus.edu',
-    invitationSentAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
-    status: 'Pending Approval',
-    health: 'Moderate',
-    healthScore: 68,
-    progress: 10,
-    currentMilestone: 'Team Onboarding & Access Code Distribution',
-    lastActivityDate: 'Yesterday',
-    team: { name: '', leader: { name: '', email: '', role: 'Team Lead' }, members: [] },
-    timeline: [
-      {
-        _id: 't6',
-        title: 'Invitation Link Dispatched to Lead',
-        description: 'Access Code NEXUS-8M2Y emailed to aravind.mech@projectnexus.edu',
-        timestamp: 'Yesterday at 4:30 PM',
-        type: 'alert'
-      }
-    ]
-  },
-  {
-    _id: 'p4',
     projectId: 'IT-2026-064',
     title: 'Decentralized Academic Credential Verification Network',
     category: 'Software',
@@ -202,93 +167,6 @@ const INITIAL_PROJECTS = [
         type: 'milestone'
       }
     ]
-  },
-  {
-    _id: 'p5',
-    projectId: 'EEE-2026-015',
-    title: 'Campus Smart Microgrid Renewable Balancing Controller',
-    category: 'IoT',
-    department: 'Electrical & Electronics',
-    academicYear: '2025-2026',
-    facultyGuide: 'Prof. Sundar Rajan',
-    deadline: '2026-05-30',
-    priority: 'High',
-    description: 'Real-time solar inverter load shedding and battery storage balancing controller interfacing via Modbus RTU and MQTT telemetry.',
-    componentsRequired: ['Raspberry Pi 4B', 'Modbus RTU Shield', 'Current Transformers SCT-013', 'Solid State Relays 40A'],
-    labAssigned: 'Power Electronics Lab (Room 112)',
-    teamAccessCode: 'NEXUS-6K4P',
-    isAccessCodeClaimed: true,
-    accessCodeStatus: 'claimed',
-    status: 'Active',
-    health: 'Good',
-    healthScore: 89,
-    progress: 54,
-    currentMilestone: 'Solar PV Array Load Profiling & Modbus Polling Loop',
-    lastActivityDate: '18 hours ago',
-    team: {
-      name: 'GridPulse Dynamics',
-      leader: {
-        name: 'Harish Varma',
-        email: 'harish.varma@projectnexus.edu',
-        role: 'Power Inverter & Systems Architect'
-      },
-      members: [
-        { name: 'Kavita Menon', email: 'kavita.menon@projectnexus.edu', role: 'Modbus Telemetry Specialist' },
-        { name: 'Rahul Bose', email: 'rahul.bose@projectnexus.edu', role: 'SCADA Dashboard Developer' }
-      ]
-    },
-    timeline: [
-      {
-        _id: 't8',
-        title: 'Telemetry Feed Live',
-        description: 'MQTT broker established streaming power metrics every 500ms.',
-        timestamp: '18 hours ago',
-        type: 'milestone'
-      }
-    ]
-  },
-  {
-    _id: 'p6',
-    projectId: 'MECH-2026-092',
-    title: 'Subsea Autonomous ROV for Acoustic Pipeline Flaw Detection',
-    category: 'Hardware',
-    department: 'Mechanical Engineering',
-    academicYear: '2025-2026',
-    facultyGuide: 'Dr. Anand Venkat',
-    deadline: '2026-04-18',
-    priority: 'High',
-    description: 'Submersible remote operated vehicle with 30-meter depth rating, ultrasonic non-destructive testing probe, and onboard thruster PID stabilization.',
-    componentsRequired: ['BlueRobotics T200 Thrusters (x4)', 'Pixhawk 4 Flight Controller', 'Ultrasonic Thickness Gauge'],
-    labAssigned: 'Fluid Mechanics Testing Basin',
-    teamAccessCode: 'NEXUS-5R7T',
-    isAccessCodeClaimed: true,
-    accessCodeStatus: 'claimed',
-    status: 'At Risk',
-    health: 'At Risk',
-    healthScore: 49,
-    progress: 32,
-    currentMilestone: 'Pressure Hull Seal Integrity Testing at 3 Atmospheres',
-    lastActivityDate: '6 days ago',
-    team: {
-      name: 'Aquanaut Robotics',
-      leader: {
-        name: 'Siddharth Nair',
-        email: 'siddharth.nair@projectnexus.edu',
-        role: 'Hull Structure & Thruster Control Lead'
-      },
-      members: [
-        { name: 'Pooja Hegde', email: 'pooja.hegde@projectnexus.edu', role: 'Ultrasonic Acoustic Testing Engineer' }
-      ]
-    },
-    timeline: [
-      {
-        _id: 't9',
-        title: 'Seal Flange Micro-Leak Detected',
-        description: 'Test dive revealed minor seal seepage at 2.2 bar pressure. Rework of O-ring groove required.',
-        timestamp: '6 days ago',
-        type: 'alert'
-      }
-    ]
   }
 ];
 
@@ -319,7 +197,7 @@ export default function AdminDashboard({ adminUser, onLogout }) {
         const res = await fetch('http://localhost:5000/api/projects');
         if (res.ok) {
           const json = await res.json();
-          if (json.success && json.data?.projects && json.data.projects.length > 0) {
+          if (json.success && Array.isArray(json.data?.projects)) {
             setProjects(json.data.projects);
           }
         }
@@ -380,10 +258,18 @@ export default function AdminDashboard({ adminUser, onLogout }) {
     setProjects(prev => [newProject, ...prev]);
   };
 
-  const handleDeleteProject = (projectId) => {
+  const handleDeleteProject = async (projectId) => {
     setProjects(prev => prev.filter(p => p.projectId !== projectId && p._id !== projectId));
     // If we're currently viewing this project, go back to the list
     if (selectedProjectId === projectId) setSelectedProjectId(null);
+
+    try {
+      await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(projectId)}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.error('Failed to sync deletion with backend database:', err);
+    }
   };
 
   const handleInviteSent = (recipientEmail) => {

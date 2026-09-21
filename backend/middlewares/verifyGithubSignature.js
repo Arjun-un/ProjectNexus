@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const Project = require('../models/Project');
+const Project = require('../db/Project');
 
 /**
  * Middleware: verifyGithubSignature

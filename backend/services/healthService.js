@@ -1,6 +1,6 @@
-const Project = require('../models/Project');
-const Task = require('../models/Task');
-const RepositoryEvent = require('../models/RepositoryEvent');
+const Project = require('../db/Project');
+const Task = require('../db/Task');
+const RepositoryEvent = require('../db/RepositoryEvent');
 
 /**
  * Enterprise Health Score Engine for ProjectNexus

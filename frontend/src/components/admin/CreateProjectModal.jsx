@@ -37,8 +37,18 @@ const FACULTY_GUIDES = [
   'Prof. David Vance (Robotics & Mechatronics)',
   'Dr. Meera Nambiar (Blockchain & Cryptography)',
   'Prof. Sundar Rajan (Renewable Energy Systems)',
-  'Dr. Anand Venkat (Fluid Dynamics & Marine Robotics)'
+  'Dr. Anand Venkat (Fluid Dynamics & Marine Robotics)',
+  'Dr. Priya Narayanan (Cyber-Physical Systems & Edge Computing)',
+  'Prof. Vikram Malhotra (VLSI & Microelectronics)',
+  'Dr. Sunita Deshmukh (Wireless Sensor Networks & 5G)',
+  'Dr. Ananya Roy (Bio-Informatics & Neural Engineering)',
+  'Prof. Alok Sharma (Cloud Computing & Distributed DevOps)'
 ];
+
+const getRandomFaculty = (currentVal) => {
+  const pool = FACULTY_GUIDES.filter(f => f !== currentVal);
+  return pool[Math.floor(Math.random() * pool.length)] || FACULTY_GUIDES[0];
+};
 
 export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }) {
   const [step, setStep] = useState(1);
@@ -48,7 +58,7 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
   const [title, setTitle] = useState('');
   const [department, setDepartment] = useState('Computer Science & Engineering');
   const [academicYear, setAcademicYear] = useState('2025-2026');
-  const [facultyGuide, setFacultyGuide] = useState(FACULTY_GUIDES[0]);
+  const [facultyGuide, setFacultyGuide] = useState(() => getRandomFaculty());
   const [deadline, setDeadline] = useState('2026-05-15');
   const [priority, setPriority] = useState('High');
   const [description, setDescription] = useState('');
@@ -81,6 +91,7 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
     setTitle('');
     setDescription('');
     setInvitedLeadEmail('');
+    setFacultyGuide(getRandomFaculty());
     setCreatedProject(null);
     setError('');
     setCopiedCode(false);
@@ -103,6 +114,7 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
       return;
     }
     setError('');
+    setFacultyGuide(prev => getRandomFaculty(prev));
     setStep(2);
   };
 
@@ -478,7 +490,10 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
                   <div className="cpm-select-wrapper">
                     <select
                       value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
+                      onChange={(e) => {
+                        setDepartment(e.target.value);
+                        setFacultyGuide(prev => getRandomFaculty(prev));
+                      }}
                       className="cpm-select"
                     >
                       {DEPARTMENTS.map((d) => (
@@ -507,9 +522,32 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
               {/* Faculty Guide & Deadline (Two-Column Row) */}
               <div className="cpm-form-row">
                 <div className="cpm-field">
-                  <label className="cpm-label">
-                    Faculty Guide <span className="cpm-label-required">*</span>
-                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <label className="cpm-label" style={{ marginBottom: 0 }}>
+                      Faculty Guide <span className="cpm-label-required">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setFacultyGuide(prev => getRandomFaculty(prev))}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#4f46e5',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title="Pick another random faculty guide"
+                    >
+                      <Sparkles size={12} />
+                      Randomize
+                    </button>
+                  </div>
                   <div className="cpm-select-wrapper">
                     <select
                       value={facultyGuide}

@@ -14,7 +14,7 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 // Force Google DNS to bypass institutional/college DNS blocks on Atlas
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
-const Project = require('../models/Project');
+const Project = require('../db/Project');
 
 const sampleProjects = [
   {

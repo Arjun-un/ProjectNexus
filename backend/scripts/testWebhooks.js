@@ -6,9 +6,9 @@ const axios = require('axios');
 
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
-const Project = require('../models/Project');
-const RepositoryEvent = require('../models/RepositoryEvent');
-const Task = require('../models/Task');
+const Project = require('../db/Project');
+const RepositoryEvent = require('../db/RepositoryEvent');
+const Task = require('../db/Task');
 const { recalculateHealthScore } = require('../services/healthService');
 
 const BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000/api';

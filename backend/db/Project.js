@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 
 const memberSchema = new mongoose.Schema({
-  // Reference to the User doc — null until invite is accepted
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -11,11 +10,9 @@ const memberSchema = new mongoose.Schema({
   email: { type: String, trim: true, lowercase: true },
   usn: { type: String, trim: true, uppercase: true, default: '' },
   roleTitle: { type: String, trim: true, default: '' },
-  // Legacy fields — kept for backward compat
   rollNo: { type: String, trim: true, default: '' },
   role: { type: String, trim: true, default: 'Project Contributor' },
   githubUsername: { type: String, trim: true, default: '' },
-  // Invitation lifecycle
   status: {
     type: String,
     enum: ['pending', 'active'],
@@ -33,7 +30,6 @@ const teamSchema = new mongoose.Schema({
     email: { type: String, default: '', lowercase: true, trim: true },
     usn: { type: String, default: '', uppercase: true, trim: true },
     roleTitle: { type: String, default: '' },
-    // Legacy fields
     rollNo: { type: String, default: '' },
     role: { type: String, default: 'Team Lead' },
     githubUsername: { type: String, default: '' }
@@ -104,7 +100,6 @@ const projectSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
-  // Conditional category metadata
   techStack: [{
     type: String,
     trim: true
@@ -144,7 +139,6 @@ const projectSchema = new mongoose.Schema({
       lastCommitAt: { type: Date }
     }]
   },
-  // Team access & claim state
   teamAccessCode: {
     type: String,
     required: true,
@@ -180,7 +174,6 @@ const projectSchema = new mongoose.Schema({
       members: []
     })
   },
-  // Status & Health
   status: {
     type: String,
     enum: ['Draft', 'Pending Approval', 'Active', 'Completed', 'Discontinued', 'At Risk'],
@@ -189,15 +182,15 @@ const projectSchema = new mongoose.Schema({
   },
   health: {
     type: String,
-    enum: ['Good', 'Moderate', 'At Risk', 'Critical'],
-    default: 'Good',
+    enum: ['Not Tracked', 'Good', 'Moderate', 'At Risk', 'Critical'],
+    default: 'Not Tracked',
     index: true
   },
   healthScore: {
     type: Number,
     min: 0,
     max: 100,
-    default: 85
+    default: 0
   },
   progress: {
     type: Number,
@@ -222,6 +215,6 @@ const projectSchema = new mongoose.Schema({
   timestamps: true
 });
 
-const Project = mongoose.model('Project', projectSchema);
+const Project = mongoose.models.Project || mongoose.model('Project', projectSchema);
 
 module.exports = Project;

@@ -20,7 +20,7 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 // Force Google DNS to bypass college/institutional DNS blocks
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
-const User = require('../models/User');
+const User = require('../db/User');
 
 const seedAdmin = async () => {
   try {

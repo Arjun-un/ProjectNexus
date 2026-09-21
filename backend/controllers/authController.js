@@ -1,4 +1,4 @@
-const User = require('../models/User');
+const User = require('../db/User');
 const generateToken = require('../utils/generateToken');
 
 /**
@@ -65,7 +65,7 @@ const loginUser = async (req, res, next) => {
  * @route   POST /api/auth/redeem-invite
  * @access  Public
  */
-const Project = require('../models/Project');
+const Project = require('../db/Project');
 
 const redeemInvite = async (req, res, next) => {
   try {

@@ -1,6 +1,7 @@
 const crypto = require('crypto');
-const Project = require('../models/Project');
-const RepositoryEvent = require('../models/RepositoryEvent');
+const Project = require('../db/Project');
+const RepositoryEvent = require('../db/RepositoryEvent');
+const TeamDB = require('../db/TeamDB');
 const { sendProjectInvitationEmail } = require('../services/emailService');
 const { parseRepoUrl, validateAndBackfillRepo } = require('../services/githubService');
 const { recalculateHealthScore } = require('../services/healthService');
@@ -361,10 +362,10 @@ exports.createProject = async (req, res) => {
       invitedLeadEmail: trimmedEmail,
       invitationSentAt,
       status: 'Active',
-      health: 'Good',
-      healthScore: 100,
+      health: 'Not Tracked',
+      healthScore: 0,
       progress: 0,
-      currentMilestone: 'Team Onboarding & Requirement Analysis',
+      currentMilestone: 'Project Initiation & Setup',
       lastActivityDate: new Date(),
       timeline: initialTimeline,
       createdBy: req.user?._id
@@ -607,14 +608,67 @@ exports.sendTestEmail = async (req, res) => {
 };
 
 /**
+ * @route   GET /api/projects/:id/team
+ * @desc    Get team directory and repository details from teamdb
+ * @access  Public / Workspace
+ */
+exports.getProjectTeam = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const project = await findProjectByIdOrCustomId(id);
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+    }
+
+    let teamRecord = await TeamDB.findOne({ projectId: project.projectId });
+
+    if (!teamRecord) {
+      // Create initial teamdb record from actual project state (empty if not yet configured)
+      teamRecord = await TeamDB.create({
+        projectId: project.projectId,
+        projectRef: project._id,
+        teamName: project.team?.name || `${project.title} Team`,
+        leader: {
+          name: project.team?.leader?.name || '',
+          email: project.team?.leader?.email || project.invitedLeadEmail || '',
+          rollNo: project.team?.leader?.rollNo || '',
+          role: project.team?.leader?.role || 'Team Lead',
+          githubUsername: project.team?.leader?.githubUsername || ''
+        },
+        members: project.team?.members && project.team.members.length > 0 ? project.team.members : [],
+        githubRepoUrl: project.githubUrl || '',
+        gitBranch: 'main',
+        webhookUrl: `http://localhost:5000/api/webhooks/repo/${project.projectId}`
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: teamRecord
+    });
+  } catch (error) {
+    console.error('Error fetching teamdb record:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve team details from teamdb',
+      error: error.message
+    });
+  }
+};
+
+/**
  * @route   PUT /api/projects/:id/team
- * @desc    Update project team details (leader, members, name, githubUrl)
+ * @desc    Update project team details and sync with teamdb collection
  * @access  Public / Team Lead
  */
 exports.updateProjectTeam = async (req, res) => {
   try {
     const { id } = req.params;
-    const { teamName, leader, members, githubUrl } = req.body;
+    const { teamName, leader, members, githubUrl, gitBranch, branch, webhookUrl } = req.body;
 
     const project = await findProjectByIdOrCustomId(id);
 
@@ -654,7 +708,8 @@ exports.updateProjectTeam = async (req, res) => {
         email: (m.email || '').trim().toLowerCase(),
         rollNo: (m.rollNo || '').trim(),
         role: (m.role || 'Project Contributor').trim(),
-        githubUsername: (m.githubUsername || '').trim()
+        githubUsername: (m.githubUsername || '').trim(),
+        tasksAssigned: typeof m.tasksAssigned === 'number' ? m.tasksAssigned : 0
       }));
     }
 
@@ -663,9 +718,30 @@ exports.updateProjectTeam = async (req, res) => {
       project.githubUrl = githubUrl.trim();
     }
 
+    const activeBranch = (gitBranch || branch || 'main').trim();
+    const activeWebhookUrl = (webhookUrl || '').trim();
+    const activeRepoUrl = (githubUrl !== undefined ? githubUrl : (project.githubUrl || '')).trim();
+
+    // Upsert into teamdb collection
+    const teamDbRecord = await TeamDB.findOneAndUpdate(
+      { projectId: project.projectId },
+      {
+        projectId: project.projectId,
+        projectRef: project._id,
+        teamName: project.team?.name || teamName || 'Alpha Visionary Labs',
+        leader: project.team.leader,
+        members: project.team.members,
+        githubRepoUrl: activeRepoUrl,
+        gitBranch: activeBranch,
+        webhookUrl: activeWebhookUrl,
+        lastUpdated: new Date()
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
     // Add timeline entry
     project.timeline.unshift({
-      title: 'Team Directory & Repository Updated',
+      title: 'Team Directory & Repository Updated in teamdb',
       description: `Team roster updated (${(project.team?.members?.length || 0) + 1} members). ${project.githubUrl ? `Repository: ${project.githubUrl}` : ''}`,
       timestamp: new Date(),
       type: 'status_change'
@@ -675,14 +751,15 @@ exports.updateProjectTeam = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Team details and repository updated successfully',
-      data: project
+      message: 'Team details, repository link and webhook URL saved to teamdb successfully',
+      data: project,
+      teamdb: teamDbRecord
     });
   } catch (error) {
-    console.error('Error updating project team:', error);
+    console.error('Error updating project team in teamdb:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to update team details',
+      message: 'Failed to update team details in teamdb',
       error: error.message
     });
   }
@@ -923,6 +1000,57 @@ exports.disconnectGithub = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to disconnect GitHub',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Delete project by ID or human Project ID
+ * @route   DELETE /api/projects/:id
+ * @access  Public / Admin
+ */
+exports.deleteProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cleanId = String(id).trim();
+    let query;
+    if (cleanId.match(/^[0-9a-fA-F]{24}$/)) {
+      query = { _id: cleanId };
+    } else {
+      query = {
+        $or: [
+          { projectId: cleanId.toUpperCase() },
+          { projectId: cleanId }
+        ]
+      };
+    }
+
+    const project = await Project.findOneAndDelete(query);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found or already deleted'
+      });
+    }
+
+    // Clean up associated repository events
+    try {
+      await RepositoryEvent.deleteMany({ projectId: project._id });
+    } catch (cleanupErr) {
+      console.warn('RepositoryEvent cleanup notice:', cleanupErr.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Project ${project.projectId} and associated telemetry deleted successfully`,
+      deletedProjectId: project.projectId
+    });
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete project',
       error: error.message
     });
   }

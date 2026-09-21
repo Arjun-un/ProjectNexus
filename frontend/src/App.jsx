@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import Navbar from './components/Navbar';
 import EntryLandingPage from './components/EntryLandingPage';
 import AdminLoginPage from './components/AdminLoginPage';
-import AdminDashboard from './components/AdminDashboard';
-import AdminDashboardView from './components/AdminDashboardView';
-import TeamWorkspaceView from './components/TeamWorkspaceView';
+import AdminDashboard from './components/admin/AdminDashboard';
 import TeamWorkspacePage from './components/TeamWorkspacePage';
 import InviteModal from './components/InviteModal';
 import HandoverModal from './components/HandoverModal';
@@ -257,14 +254,17 @@ export default function App() {
           deadline: project.deadline || '2026-05-30',
           priority: project.priority || 'Medium',
           description: project.description || '',
-          techStack: project.techStack || ['React', 'Node.js'],
+          techStack: Array.isArray(project.techStack) ? project.techStack : [],
           teamAccessCode: project.teamAccessCode,
-          status: project.status || 'active',
-          currentProgress: project.progress || 10,
+          status: project.status || 'Active',
+          currentProgress: project.progress !== undefined ? project.progress : 0,
+          health: project.health || 'Not Tracked',
+          healthScore: project.healthScore !== undefined ? project.healthScore : 0,
           currentVersionNumber: 1,
+          lastUpdateDaysAgo: 0,
           team: project.team || {
-            name: 'Workspace Team',
-            lead: { name: user?.name || 'Team Lead', email: user?.email || 'lead@projectnexus.edu' },
+            name: '',
+            lead: { name: user?.name || '', email: user?.email || project.invitedLeadEmail || '' },
             members: []
           }
         }, ...prev];

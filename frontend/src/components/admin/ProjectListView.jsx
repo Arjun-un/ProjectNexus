@@ -286,6 +286,14 @@ export default function ProjectListView({
   const [deleteModal, setDeleteModal] = useState(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
+  // Close popup menu when clicking outside
+  useEffect(() => {
+    if (!openMenuId) return;
+    const handleOutsideClick = () => setOpenMenuId(null);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, [openMenuId]);
+
   const isFiltersActive =
     filterCategory !== 'All' ||
     filterStatus !== 'All' ||
@@ -472,9 +480,8 @@ export default function ProjectListView({
           borderRadius: '16px',
           border: '1px solid #E2E8F0',
           boxShadow: '0 2px 10px rgba(15,23,42,0.05)',
-          overflow: 'hidden',
         }}>
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: 'auto', minHeight: filteredProjects.length <= 3 ? '320px' : 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '960px' }}>
               <thead>
                 <tr style={{
@@ -490,9 +497,10 @@ export default function ProjectListView({
                 </tr>
               </thead>
               <tbody>
-                {filteredProjects.map((p) => {
+                {filteredProjects.map((p, idx) => {
                   const isMenuOpen = openMenuId === p.projectId;
                   const hasTeam = p.isAccessCodeClaimed && p.team?.name;
+                  const openUpwards = filteredProjects.length <= 3 ? idx >= 1 : idx >= filteredProjects.length - 2;
 
                   return (
                     <tr
@@ -608,11 +616,17 @@ export default function ProjectListView({
                             {isMenuOpen && (
                               <div
                                 style={{
-                                  position: 'absolute', right: 0, top: 'calc(100% + 6px)',
+                                  position: 'absolute',
+                                  right: 0,
+                                  top: openUpwards ? 'auto' : 'calc(100% + 6px)',
+                                  bottom: openUpwards ? 'calc(100% + 6px)' : 'auto',
+                                  transformOrigin: openUpwards ? 'bottom right' : 'top right',
                                   background: '#FFFFFF',
                                   border: '1px solid #E2E8F0',
                                   borderRadius: '12px',
-                                  boxShadow: '0 8px 32px rgba(15,23,42,0.13), 0 2px 8px rgba(15,23,42,0.06)',
+                                  boxShadow: openUpwards
+                                    ? '0 -8px 32px rgba(15,23,42,0.14), 0 -2px 8px rgba(15,23,42,0.06)'
+                                    : '0 8px 32px rgba(15,23,42,0.13), 0 2px 8px rgba(15,23,42,0.06)',
                                   zIndex: 201,
                                   minWidth: '196px',
                                   overflow: 'hidden',

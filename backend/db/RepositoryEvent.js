@@ -60,6 +60,6 @@ repositoryEventSchema.index(
   { sparse: true, unique: false }
 );
 
-const RepositoryEvent = mongoose.model('RepositoryEvent', repositoryEventSchema);
+const RepositoryEvent = mongoose.models.RepositoryEvent || mongoose.model('RepositoryEvent', repositoryEventSchema);
 
 module.exports = RepositoryEvent;

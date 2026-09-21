@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import './TeamWorkspacePage.css';
 import {
   Layers,
@@ -47,13 +47,16 @@ import {
 
 /* ── Compute days remaining until a date ── */
 function daysUntil(dateStr) {
+  if (!dateStr) return 45;
   const target = new Date(dateStr);
+  if (isNaN(target.getTime())) return 45;
   const now = new Date();
   return Math.ceil((target - now) / (1000 * 60 * 60 * 24));
 }
 
 /* ── Health score from progress ── */
-function healthLabel(pct) {
+function healthLabel(pct, isTracked) {
+  if (!isTracked || pct === 0) return { label: 'Not Tracked', color: '#64748b', trackColor: 'rgba(255,255,255,0.08)' };
   if (pct >= 80) return { label: 'Healthy', color: '#22c55e', trackColor: '#dcfce7' };
   if (pct >= 50) return { label: 'On Track', color: '#f59e0b', trackColor: '#fef3c7' };
   return { label: 'At Risk', color: '#ef4444', trackColor: '#fee2e2' };
@@ -100,36 +103,32 @@ export default function TeamWorkspacePage({
   const [showInstructions, setShowInstructions] = useState(false);
   const [repoConnected, setRepoConnected] = useState(true);
 
-  // Dynamic Team Lead & Members State
+  // Dynamic Team Lead & Members State (clean initial states without dummy fallbacks)
   const [teamLead, setTeamLead] = useState(() => ({
-    name: project?.team?.lead?.name || project?.team?.leader?.name || 'Arjun Swaminathan',
-    email: project?.team?.lead?.email || project?.team?.leader?.email || project?.invitedLeadEmail || 'arjun.swami@projectnexus.edu',
-    rollNo: project?.team?.lead?.rollNo || project?.team?.leader?.rollNo || 'CS24B041',
-    role: project?.team?.lead?.role || project?.team?.leader?.role || 'Team Lead & Core ML Architect',
-    githubUsername: project?.team?.lead?.githubUsername || project?.team?.leader?.githubUsername || 'arjun-un'
+    name: project?.team?.lead?.name || project?.team?.leader?.name || '',
+    email: project?.team?.lead?.email || project?.team?.leader?.email || project?.invitedLeadEmail || '',
+    rollNo: project?.team?.lead?.rollNo || project?.team?.leader?.rollNo || '',
+    role: project?.team?.lead?.role || project?.team?.leader?.role || 'Team Lead',
+    githubUsername: project?.team?.lead?.githubUsername || project?.team?.leader?.githubUsername || ''
   }));
 
   const [teamMembers, setTeamMembers] = useState(() => {
     const raw = project?.team?.members || [];
     if (raw.length > 0) {
       return raw.map((m, idx) => ({
-        name: m.name || `Student Contributor ${idx + 1}`,
-        email: m.email || `student${idx + 1}@projectnexus.edu`,
-        rollNo: m.rollNo || `CS24B0${42 + idx}`,
+        name: m.name || '',
+        email: m.email || '',
+        rollNo: m.rollNo || '',
         role: m.role || 'Project Contributor',
-        githubUsername: m.githubUsername || (m.name ? m.name.toLowerCase().replace(/\s+/g, '-') : `contributor-${idx + 1}`),
-        tasksAssigned: m.tasksAssigned || (idx === 0 ? 3 : 2)
+        githubUsername: m.githubUsername || '',
+        tasksAssigned: m.tasksAssigned || 0
       }));
     }
-    return [
-      { name: 'Priya Raman', email: 'priya.raman@projectnexus.edu', rollNo: 'CS24B042', role: 'Frontend & Edge UI Developer', githubUsername: 'priya-dev', tasksAssigned: 3 },
-      { name: 'Karthik Raja', email: 'karthik.raja@projectnexus.edu', rollNo: 'CS24B043', role: 'FastAPI & Backend Pipeline', githubUsername: 'karthik-r', tasksAssigned: 2 },
-      { name: 'Sneha Patel', email: 'sneha.patel@projectnexus.edu', rollNo: 'CS24B044', role: 'Model Quantization & QA', githubUsername: 'sneha-ml', tasksAssigned: 2 }
-    ];
+    return [];
   });
 
   const [githubRepoUrl, setGithubRepoUrl] = useState(
-    project?.githubUrl || project?.githubStats?.repoUrl || 'https://github.com/projectnexus/smart-attendance-system'
+    project?.githubUrl || project?.githubStats?.repoUrl || ''
   );
   const [gitBranch, setGitBranch] = useState('main');
 
@@ -233,13 +232,16 @@ export default function TeamWorkspacePage({
 
     try {
       const projId = project.projectId || project.id || project._id;
+      const targetTrackingUrl = (tunnelBaseUrl ? `${tunnelBaseUrl.trim().replace(/\/+$/, '')}/api/webhooks/repo/${projId}` : `http://localhost:5000/api/webhooks/repo/${projId}`);
       await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(projId)}/team`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           leader: updatedLead,
           members: updatedMembers,
-          githubUrl: updatedUrl
+          githubUrl: updatedUrl,
+          gitBranch: updatedBranch,
+          webhookUrl: targetTrackingUrl
         })
       });
       setTeamSaveFeedback('Team details and GitHub repository updated successfully!');
@@ -260,18 +262,113 @@ export default function TeamWorkspacePage({
   };
 
   // Derived values
-  const projectTasks = tasks.filter(t => t.projectId === project.id);
+  const projectTasks = tasks.filter(t => t.projectId === project.id || t.projectId === project.projectId);
   const doneTasks    = projectTasks.filter(t => t.status === 'done');
+  const isTracked    = Boolean(
+    (projectTasks.length > 0) ||
+    (project?.githubIntegration?.isConnected) ||
+    (project?.progress && project.progress > 0) ||
+    (project?.healthScore && project.healthScore > 0 && project.health !== 'Not Tracked')
+  );
   const progress     = projectTasks.length > 0
     ? Math.round((doneTasks.length / projectTasks.length) * 100)
-    : (project.currentProgress || 0);
+    : (isTracked ? (project.progress !== undefined ? project.progress : (project.currentProgress || 0)) : 0);
 
-  const health    = healthLabel(progress);
-  const daysLeft  = daysUntil(project.expectedEndDate);
+  const health    = healthLabel(progress, isTracked);
+  const daysLeft  = daysUntil(project?.expectedEndDate || project?.deadline);
+  const [tunnelBaseUrl, setTunnelBaseUrl] = useState(() => {
+    return localStorage.getItem('nexus_tunnel_url') || '';
+  });
+
+  const handleUpdateTunnelUrl = (val) => {
+    const clean = val.trim();
+    setTunnelBaseUrl(clean);
+    if (clean) {
+      localStorage.setItem('nexus_tunnel_url', clean);
+    } else {
+      localStorage.removeItem('nexus_tunnel_url');
+    }
+  };
+
   const rawProjectId = project.projectId || project.id || 'CSE-2026-041';
-  const trackingUrl = `http://localhost:5000/api/webhooks/repo/${rawProjectId}`;
+  const effectiveBaseUrl = (tunnelBaseUrl || '').trim().replace(/\/+$/, '') || 'http://localhost:5000';
+  const trackingUrl = `${effectiveBaseUrl}/api/webhooks/repo/${rawProjectId}`;
 
-  const activeMilestone = milestones.find(m => m.status === 'in_progress') || milestones[milestones.length - 1];
+  // Project-scoped milestones: clean initial 0% milestones for unconfigured projects
+  const projectMilestones = useMemo(() => {
+    if (project?.milestones && project.milestones.length > 0) {
+      return project.milestones;
+    }
+    const projId = project?.id || project?.projectId;
+    if (projId === 'proj-101' || projId === 'CSE-2026-041') {
+      return milestones;
+    }
+    const baseDate = project?.deadline ? new Date(project.deadline) : new Date(Date.now() + 90 * 86400000);
+    const formatDate = (daysOffset) => {
+      const d = new Date(baseDate.getTime() - daysOffset * 86400000);
+      return isNaN(d.getTime()) ? '2026-06-30' : d.toISOString().split('T')[0];
+    };
+    return [
+      { id: 'm1', title: 'Milestone 1: Requirement Gathering & System Specification', dueDate: formatDate(60), status: 'in_progress', progress: 0 },
+      { id: 'm2', title: 'Milestone 2: Architecture Design & Core Prototyping', dueDate: formatDate(40), status: 'pending', progress: 0 },
+      { id: 'm3', title: 'Milestone 3: Full-Stack Implementation & Integration', dueDate: formatDate(20), status: 'pending', progress: 0 },
+      { id: 'm4', title: 'Milestone 4: Verification, Quality Assurance & Final Review', dueDate: formatDate(0), status: 'pending', progress: 0 }
+    ];
+  }, [project, milestones]);
+
+  const activeMilestone = projectMilestones.find(m => m.status === 'in_progress') || projectMilestones[0];
+
+  // Hydrate team directory & repository from teamdb
+  useEffect(() => {
+    let isMounted = true;
+    const fetchTeamFromDb = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(rawProjectId)}/team`);
+        const json = await res.json();
+        if (isMounted && json.success && json.data) {
+          const t = json.data;
+          if (t.leader) {
+            setTeamLead({
+              name: t.leader.name || '',
+              email: t.leader.email || '',
+              rollNo: t.leader.rollNo || '',
+              role: t.leader.role || 'Team Lead',
+              githubUsername: t.leader.githubUsername || ''
+            });
+          }
+          if (Array.isArray(t.members)) {
+            setTeamMembers(t.members.map(m => ({
+              name: m.name || '',
+              email: m.email || '',
+              rollNo: m.rollNo || '',
+              role: m.role || 'Project Contributor',
+              githubUsername: m.githubUsername || '',
+              tasksAssigned: m.tasksAssigned || 0
+            })));
+          }
+          if (t.githubRepoUrl) {
+            setGithubRepoUrl(t.githubRepoUrl);
+          }
+          if (t.gitBranch) {
+            setGitBranch(t.gitBranch);
+          }
+          if (t.webhookUrl) {
+            const savedUrl = t.webhookUrl.trim();
+            if (savedUrl && !savedUrl.includes('localhost:5000')) {
+              try {
+                const parsed = new URL(savedUrl);
+                setTunnelBaseUrl(parsed.origin);
+              } catch {}
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load team from teamdb:', err.message);
+      }
+    };
+    fetchTeamFromDb();
+    return () => { isMounted = false; };
+  }, [rawProjectId]);
 
   // Initials helper
   const initials = name => (name || '').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -511,12 +608,14 @@ export default function TeamWorkspacePage({
                       </div>
                       <div className="twp-header-meta-item">
                         <CalendarDays style={{ width: 14, height: 14, color: '#6366f1' }} />
-                        Deadline: <strong>{project.expectedEndDate}</strong>
+                        Deadline: <strong>{project.expectedEndDate || (project.deadline ? String(project.deadline).split('T')[0] : 'In 55 days')}</strong>
                       </div>
                       <div className="twp-header-meta-item">
                         <Clock style={{ width: 14, height: 14, color: '#94a3b8' }} />
-                        Last update: <strong style={{ color: project.lastUpdateDaysAgo >= 7 ? '#f87171' : '#4ade80' }}>
-                          {project.lastUpdateDaysAgo === 0 ? 'Today' : `${project.lastUpdateDaysAgo}d ago`}
+                        Last update: <strong style={{ color: (project.lastUpdateDaysAgo ?? 0) >= 7 ? '#f87171' : '#4ade80' }}>
+                          {project.lastUpdateDaysAgo !== undefined && !isNaN(project.lastUpdateDaysAgo)
+                            ? (project.lastUpdateDaysAgo === 0 ? 'Today' : `${project.lastUpdateDaysAgo}d ago`)
+                            : (project.updatedAt || project.createdAt ? `${Math.max(0, Math.floor((new Date() - new Date(project.updatedAt || project.createdAt)) / 86400000))}d ago` : 'Just created')}
                         </strong>
                       </div>
                     </div>
@@ -540,7 +639,7 @@ export default function TeamWorkspacePage({
                           />
                         </svg>
                         <div className="twp-health-ring-label">
-                          <span className="twp-health-pct" style={{ color: health.color }}>{progress}%</span>
+                          <span className="twp-health-pct" style={{ color: health.color }}>{isTracked ? `${progress}%` : '0%'}</span>
                           <span className="twp-health-text" style={{ color: health.color }}>{health.label}</span>
                         </div>
                       </div>
@@ -553,7 +652,7 @@ export default function TeamWorkspacePage({
                         {daysLeft}
                       </div>
                       <div className="twp-deadline-label">days remaining</div>
-                      <div className="twp-deadline-date">{project.expectedEndDate}</div>
+                      <div className="twp-deadline-date">{project.expectedEndDate || (project.deadline ? String(project.deadline).split('T')[0] : '')}</div>
                     </div>
                   </div>
                 </div>
@@ -655,8 +754,16 @@ export default function TeamWorkspacePage({
                       <Info style={{ width: 13, height: 13 }} className="twp-card-title-icon" />
                       Problem Statement & Scope
                     </div>
-                    <p className="twp-desc-text">{project.problemStatement}</p>
-                    <p className="twp-desc-text" style={{ marginTop: 10, color: '#64748b' }}>{project.description}</p>
+                    {project.problemStatement || project.description ? (
+                      <>
+                        {project.problemStatement && <p className="twp-desc-text">{project.problemStatement}</p>}
+                        {project.description && <p className="twp-desc-text" style={{ marginTop: project.problemStatement ? 10 : 0, color: '#64748b' }}>{project.description}</p>}
+                      </>
+                    ) : (
+                      <p className="twp-desc-text" style={{ color: '#94a3b8', fontStyle: 'italic' }}>
+                        No specific problem statement documented yet. Team can add requirements via workspace documents.
+                      </p>
+                    )}
                   </div>
 
                   {/* Tech Stack */}
@@ -666,9 +773,13 @@ export default function TeamWorkspacePage({
                       Technology Stack
                     </div>
                     <div className="twp-tech-chips">
-                      {(project.techStack || []).map(tech => (
-                        <span key={tech} className="twp-tech-chip">{tech}</span>
-                      ))}
+                      {project.techStack && project.techStack.length > 0 ? (
+                        project.techStack.map(tech => (
+                          <span key={tech} className="twp-tech-chip">{tech}</span>
+                        ))
+                      ) : (
+                        <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No technologies defined yet.</span>
+                      )}
                     </div>
                   </div>
 
@@ -692,7 +803,7 @@ export default function TeamWorkspacePage({
                     </div>
 
                     <div className="twp-milestone-track">
-                      {milestones.map((m, i) => {
+                      {projectMilestones.map((m, i) => {
                         const isDone   = m.status === 'approved';
                         const isActive = m.status === 'in_progress';
                         return (
@@ -718,7 +829,7 @@ export default function TeamWorkspacePage({
                       Team Roster
                       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 11, background: '#ede9fe', color: '#6366f1', padding: '1px 8px', borderRadius: 10, fontWeight: 700 }}>
-                          {1 + (teamMembers?.length || 0)} members
+                          {((teamLead.name ? 1 : 0) + (teamMembers?.length || 0))} {((teamLead.name ? 1 : 0) + (teamMembers?.length || 0)) === 1 ? 'member' : 'members'}
                         </span>
                         <button
                           onClick={handleOpenTeamModal}
@@ -738,27 +849,48 @@ export default function TeamWorkspacePage({
                       </div>
                     </div>
 
-                    {/* Lead */}
-                    <div className="twp-team-lead">
-                      <div className="twp-team-avatar twp-team-avatar--lead">{leadInitials}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="twp-team-name">{teamLead.name || 'Team Lead'}</div>
-                        <div className="twp-team-role">{teamLead.role || 'Team Lead'}</div>
-                        <div className="twp-team-roll">{teamLead.rollNo} {teamLead.email ? `· ${teamLead.email}` : ''}</div>
-                      </div>
-                      <span style={{ fontSize: 10, background: '#ede9fe', color: '#6366f1', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>Lead</span>
-                    </div>
-
-                    {/* Members */}
-                    {(teamMembers || []).map((m, idx) => (
-                      <div key={m.email || idx} className="twp-team-member">
-                        <div className="twp-team-avatar twp-team-avatar--member">{initials(m.name)}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="twp-team-name" style={{ fontSize: 12 }}>{m.name}</div>
-                          <div className="twp-team-roll">{m.rollNo} · {m.role}</div>
+                    {!teamLead.name && (!teamMembers || teamMembers.length === 0) ? (
+                      <div style={{ textAlign: 'center', padding: '22px 14px', background: '#f8fafc', borderRadius: 12, border: '1px dashed #cbd5e1' }}>
+                        <Users style={{ width: 24, height: 24, color: '#94a3b8', margin: '0 auto 6px', display: 'block' }} />
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#334155' }}>No Team Members Registered</div>
+                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 3, marginBottom: 10 }}>
+                          Team lead profile and member roster have not been filled yet.
                         </div>
+                        <button
+                          onClick={handleOpenTeamModal}
+                          className="twp-btn-primary"
+                          style={{ fontSize: 11.5, padding: '6px 12px', margin: '0 auto', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                        >
+                          <Plus style={{ width: 12, height: 12 }} /> Add Team Members
+                        </button>
                       </div>
-                    ))}
+                    ) : (
+                      <>
+                        {/* Lead */}
+                        {teamLead.name ? (
+                          <div className="twp-team-lead">
+                            <div className="twp-team-avatar twp-team-avatar--lead">{leadInitials}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div className="twp-team-name">{teamLead.name}</div>
+                              <div className="twp-team-role">{teamLead.role || 'Team Lead'}</div>
+                              <div className="twp-team-roll">{teamLead.rollNo} {teamLead.email ? `· ${teamLead.email}` : ''}</div>
+                            </div>
+                            <span style={{ fontSize: 10, background: '#ede9fe', color: '#6366f1', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>Lead</span>
+                          </div>
+                        ) : null}
+
+                        {/* Members */}
+                        {(teamMembers || []).map((m, idx) => (
+                          <div key={m.email || idx} className="twp-team-member">
+                            <div className="twp-team-avatar twp-team-avatar--member">{initials(m.name)}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div className="twp-team-name" style={{ fontSize: 12 }}>{m.name}</div>
+                              <div className="twp-team-roll">{m.rollNo} · {m.role}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
 
                   {/* Quick stats */}
@@ -782,7 +914,7 @@ export default function TeamWorkspacePage({
                       </div>
                       <div className="twp-stat-box">
                         <div className="twp-stat-val twp-stat-val--green">
-                          {project.lastUpdateDaysAgo === 0 ? 'Today' : `${project.lastUpdateDaysAgo}d`}
+                          {project.lastUpdateDaysAgo === 0 ? 'Today' : `${project.lastUpdateDaysAgo ?? 1}d`}
                         </div>
                         <div className="twp-stat-lbl">Last Update</div>
                       </div>
@@ -868,6 +1000,29 @@ export default function TeamWorkspacePage({
                     {webhookPingResult.message}
                   </div>
                 )}
+
+                {/* Tunnel domain badge / setter */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, fontSize: 11 }}>
+                  <span style={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: tunnelBaseUrl ? '#10b981' : '#94a3b8' }} />
+                    {tunnelBaseUrl ? <>Public Tunnel Active: <strong style={{ color: '#0f172a' }}>{tunnelBaseUrl}</strong></> : 'Using Localhost (Default)'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleOpenTeamModal}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#6366f1',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontSize: 11,
+                      padding: 0
+                    }}
+                  >
+                    {tunnelBaseUrl ? 'Change Tunnel URL' : '⚙️ Set ngrok / Tunnel URL'}
+                  </button>
+                </div>
 
                 {/* URL row */}
                 <div className="twp-url-row">
@@ -972,7 +1127,7 @@ export default function TeamWorkspacePage({
                 </div>
               </div>
 
-              {milestones.map((m, i) => {
+              {projectMilestones.map((m, i) => {
                 const isDone   = m.status === 'approved';
                 const isActive = m.status === 'in_progress';
                 return (
@@ -1832,6 +1987,54 @@ export default function TeamWorkspacePage({
                   borderRadius: 10,
                   padding: '12px 14px'
                 }}>
+                  {/* Public Tunnel / ngrok URL Input */}
+                  <div style={{ marginBottom: 12, paddingBottom: 10, borderBottom: '1px dashed #cbd5e1' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <Link2 style={{ width: 12, height: 12, color: '#6366f1' }} />
+                        Public Tunnel / ngrok URL (for GitHub tracking)
+                      </label>
+                      {tunnelBaseUrl && (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTunnelUrl('')}
+                          style={{
+                            fontSize: 10.5,
+                            color: '#ef4444',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: 0,
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          Reset to localhost
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="e.g. https://c782-103-120-1-5.ngrok-free.app (from terminal)"
+                      value={tunnelBaseUrl}
+                      onChange={e => handleUpdateTunnelUrl(e.target.value)}
+                      style={{
+                        width: '100%',
+                        background: '#fff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: 6,
+                        padding: '7px 10px',
+                        fontSize: 11.5,
+                        color: '#0f172a',
+                        fontFamily: 'monospace',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>
+                      Paste your <code>ngrok</code> or <code>localtunnel</code> address here. It will automatically update the webhook URL below.
+                    </div>
+                  </div>
+
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                     <span style={{ fontSize: 11.5, fontWeight: 700, color: '#1e293b' }}>
                       GitHub Webhook Payload URL

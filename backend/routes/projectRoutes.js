@@ -9,20 +9,24 @@ const {
   revokeAccessCode,
   sendProjectInvite,
   sendTestEmail,
+  getProjectTeam,
   updateProjectTeam,
   generateGithubWebhook,
   getGithubEvents,
-  disconnectGithub
+  disconnectGithub,
+  deleteProject
 } = require('../controllers/projectController');
 
 // Routes for projects
 router.get('/kpis', getProjectKPIs);
 router.get('/', getProjects);
 router.post('/test-email', sendTestEmail);
+router.get('/:id/team', getProjectTeam);
 router.get('/:id', getProjectById);
 router.post('/', createProject);
 router.put('/:id/team', updateProjectTeam);
 router.put('/:id', updateProjectTeam);
+router.delete('/:id', deleteProject);
 router.post('/:id/regenerate-code', regenerateAccessCode);
 router.post('/:id/revoke-code', revokeAccessCode);
 router.post('/:id/send-invite', sendProjectInvite);

@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
-const Project = require('../models/Project');
-const RepositoryEvent = require('../models/RepositoryEvent');
-const Task = require('../models/Task');
+const Project = require('../db/Project');
+const RepositoryEvent = require('../db/RepositoryEvent');
+const Task = require('../db/Task');
 const verifyGithubSignature = require('../middlewares/verifyGithubSignature');
 const { recalculateHealthScore } = require('../services/healthService');
 
