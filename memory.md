@@ -79,9 +79,11 @@ mini_project/
   - Project provisioning with randomized faculty guide assignment and auto-generated `NEXUS-XXXX` access codes.
   - Deletion and archiving with full telemetry event cascading cleanup.
   - One-click Gmail SMTP email dispatch of project invitations and access codes.
+  - Comprehensive Project Detail View with student-authored project brief, current sprint notes, and team member contribution breakdown.
 * **Team Workspace**:
   - Direct team onboarding via human Project ID + Team Access Code.
   - Team Directory & Repository view synced with MongoDB collection `teamdb`.
+  - Student-authored Project Brief, Live Status updates, and individual Member Contribution management.
   - In-browser webhook simulation and real-time GitHub webhook payload configuration (`/api/webhooks/repo/:id`).
   - Kanban task board with status workflows (`todo`, `in_progress`, `under_review`, `done`).
   - Milestone timeline and weekly update submission.

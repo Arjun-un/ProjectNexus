@@ -11,6 +11,7 @@ const {
   sendTestEmail,
   getProjectTeam,
   updateProjectTeam,
+  updateStudentContributions,
   generateGithubWebhook,
   getGithubEvents,
   disconnectGithub,
@@ -25,6 +26,7 @@ router.get('/:id/team', getProjectTeam);
 router.get('/:id', getProjectById);
 router.post('/', createProject);
 router.put('/:id/team', updateProjectTeam);
+router.put('/:id/contributions', updateStudentContributions);
 router.put('/:id', updateProjectTeam);
 router.delete('/:id', deleteProject);
 router.post('/:id/regenerate-code', regenerateAccessCode);

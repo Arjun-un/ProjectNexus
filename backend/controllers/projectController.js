@@ -693,7 +693,8 @@ exports.updateProjectTeam = async (req, res) => {
         email: leader.email ? leader.email.trim().toLowerCase() : (project.team?.leader?.email || project.invitedLeadEmail || ''),
         rollNo: leader.rollNo ? leader.rollNo.trim() : (project.team?.leader?.rollNo || ''),
         role: leader.role ? leader.role.trim() : 'Team Lead',
-        githubUsername: leader.githubUsername ? leader.githubUsername.trim() : (project.team?.leader?.githubUsername || '')
+        githubUsername: leader.githubUsername ? leader.githubUsername.trim() : (project.team?.leader?.githubUsername || ''),
+        contribution: leader.contribution !== undefined ? leader.contribution.trim() : (project.team?.leader?.contribution || '')
       };
       if (leader.email) {
         project.invitedLeadEmail = leader.email.trim().toLowerCase();
@@ -709,8 +710,19 @@ exports.updateProjectTeam = async (req, res) => {
         rollNo: (m.rollNo || '').trim(),
         role: (m.role || 'Project Contributor').trim(),
         githubUsername: (m.githubUsername || '').trim(),
+        contribution: (m.contribution || '').trim(),
         tasksAssigned: typeof m.tasksAssigned === 'number' ? m.tasksAssigned : 0
       }));
+    }
+
+    // Update studentSummary & currentStatusNote if provided
+    const { studentSummary, currentStatusNote } = req.body;
+    if (studentSummary !== undefined) {
+      project.studentSummary = studentSummary.trim();
+      project.summaryLastUpdatedAt = new Date();
+    }
+    if (currentStatusNote !== undefined) {
+      project.currentStatusNote = currentStatusNote.trim();
     }
 
     // Update githubUrl if provided
@@ -731,6 +743,8 @@ exports.updateProjectTeam = async (req, res) => {
         teamName: project.team?.name || teamName || 'Alpha Visionary Labs',
         leader: project.team.leader,
         members: project.team.members,
+        studentSummary: project.studentSummary || '',
+        currentStatusNote: project.currentStatusNote || '',
         githubRepoUrl: activeRepoUrl,
         gitBranch: activeBranch,
         webhookUrl: activeWebhookUrl,
@@ -760,6 +774,136 @@ exports.updateProjectTeam = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update team details in teamdb',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Update student project summary, current status, and member contributions
+ * @route   PUT /api/projects/:id/contributions
+ * @access  Public (Student Team / Workspace)
+ */
+exports.updateStudentContributions = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      studentSummary,
+      currentStatusNote,
+      leaderContribution,
+      members,
+      memberContributions
+    } = req.body;
+
+    const cleanId = String(id).trim();
+    let query;
+    if (cleanId.match(/^[0-9a-fA-F]{24}$/)) {
+      query = { _id: cleanId };
+    } else {
+      query = {
+        $or: [
+          { projectId: cleanId.toUpperCase() },
+          { projectId: cleanId }
+        ]
+      };
+    }
+
+    const project = await Project.findOne(query);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+    }
+
+    if (!project.team) {
+      project.team = { name: '', leader: {}, members: [] };
+    }
+
+    // 1. Update Student Summary & Current Status
+    if (studentSummary !== undefined) {
+      project.studentSummary = studentSummary.trim();
+    }
+    if (currentStatusNote !== undefined) {
+      project.currentStatusNote = currentStatusNote.trim();
+    }
+    project.summaryLastUpdatedAt = new Date();
+    project.lastActivityDate = new Date();
+
+    // 2. Update Leader Contribution
+    if (leaderContribution !== undefined) {
+      if (!project.team.leader) project.team.leader = {};
+      project.team.leader.contribution = leaderContribution.trim();
+    }
+
+    // 3. Update Member Contributions
+    if (Array.isArray(members)) {
+      project.team.members = members.map((m, idx) => {
+        const existing = (project.team.members && project.team.members[idx]) || {};
+        return {
+          name: (m.name || existing.name || '').trim(),
+          email: (m.email || existing.email || '').trim().toLowerCase(),
+          rollNo: (m.rollNo || existing.rollNo || '').trim(),
+          role: (m.role || existing.role || 'Project Contributor').trim(),
+          githubUsername: (m.githubUsername || existing.githubUsername || '').trim(),
+          contribution: (m.contribution !== undefined ? m.contribution : (existing.contribution || '')).trim(),
+          tasksAssigned: typeof m.tasksAssigned === 'number' ? m.tasksAssigned : (existing.tasksAssigned || 0)
+        };
+      });
+    } else if (Array.isArray(memberContributions)) {
+      memberContributions.forEach((mc, idx) => {
+        let member = null;
+        if (mc.email) {
+          member = project.team.members.find(m => m.email?.toLowerCase() === mc.email.toLowerCase());
+        } else if (mc.rollNo) {
+          member = project.team.members.find(m => m.rollNo === mc.rollNo);
+        } else if (typeof mc.index === 'number' && project.team.members[mc.index]) {
+          member = project.team.members[mc.index];
+        } else if (project.team.members[idx]) {
+          member = project.team.members[idx];
+        }
+        if (member && mc.contribution !== undefined) {
+          member.contribution = String(mc.contribution).trim();
+        }
+      });
+    }
+
+    // 4. Upsert/Update TeamDB for synchronized roster & contributions
+    await TeamDB.findOneAndUpdate(
+      { projectId: project.projectId },
+      {
+        projectId: project.projectId,
+        projectRef: project._id,
+        teamName: project.team?.name || 'Alpha Visionary Labs',
+        leader: project.team.leader,
+        members: project.team.members,
+        studentSummary: project.studentSummary || '',
+        currentStatusNote: project.currentStatusNote || '',
+        lastUpdated: new Date()
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    // 5. Add timeline event
+    project.timeline.unshift({
+      title: 'Project Brief & Contributions Updated',
+      description: 'Student team submitted updated project summary, status note, and individual member contribution deliverables.',
+      timestamp: new Date(),
+      type: 'status_change'
+    });
+
+    await project.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Project summary, status note, and member contributions updated successfully',
+      data: project
+    });
+  } catch (error) {
+    console.error('Error updating student contributions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update student contributions',
       error: error.message
     });
   }

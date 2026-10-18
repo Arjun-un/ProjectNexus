@@ -27,6 +27,11 @@ const memberSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
+  contribution: {
+    type: String,
+    default: '',
+    trim: true
+  },
   tasksAssigned: {
     type: Number,
     default: 0
@@ -77,6 +82,11 @@ const teamDBSchema = new mongoose.Schema({
       type: String,
       default: '',
       trim: true
+    },
+    contribution: {
+      type: String,
+      default: '',
+      trim: true
     }
   },
   members: [memberSchema],
@@ -91,6 +101,16 @@ const teamDBSchema = new mongoose.Schema({
     trim: true
   },
   webhookUrl: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  studentSummary: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  currentStatusNote: {
     type: String,
     default: '',
     trim: true

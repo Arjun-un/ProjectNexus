@@ -102,6 +102,54 @@ export default function ProjectDetailView({
         </div>
       </div>
 
+      {/* Student-Submitted Project Brief & Live Status Card */}
+      <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-xs space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-indigo-600" />
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+              Student Project Summary & Live Status
+            </h3>
+          </div>
+          {project.studentSummary ? (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+              Student Submitted
+            </span>
+          ) : (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+              Awaiting Student Submission
+            </span>
+          )}
+        </div>
+
+        {project.studentSummary ? (
+          <div className="space-y-3 text-xs">
+            <p className="text-slate-700 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+              {project.studentSummary}
+            </p>
+            {project.currentStatusNote && (
+              <div className="flex items-start gap-2 p-3 bg-emerald-50/70 border border-emerald-200/70 rounded-xl text-emerald-900 text-xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-[11px] block uppercase tracking-wider text-emerald-800">Current Development Status / Notes:</span>
+                  <span className="text-emerald-700 font-medium">{project.currentStatusNote}</span>
+                </div>
+              </div>
+            )}
+            {project.summaryLastUpdatedAt && (
+              <div className="text-[10px] text-slate-400 font-mono text-right">
+                Last updated by student team: {new Date(project.summaryLastUpdatedAt).toLocaleString()}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60 text-slate-500 text-xs italic flex items-center justify-between">
+            <span>No detailed project summary submitted by the student team yet.</span>
+            <span className="text-[10px] font-mono text-slate-400">Can be added from Student Team Workspace</span>
+          </div>
+        )}
+      </div>
+
       {/* Main Grid: Left Specs & Timeline, Right Team Roster & Access Code */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
@@ -233,7 +281,7 @@ export default function ProjectDetailView({
 
                 {/* Team Lead */}
                 {project.team.leader?.name && (
-                  <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 space-y-1">
+                  <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">
                         Team Leader
@@ -247,6 +295,21 @@ export default function ProjectDetailView({
                       <Mail className="w-3 h-3 text-slate-400" />
                       <span>{project.team.leader.email}</span>
                     </div>
+
+                    {/* Leader Contribution */}
+                    {project.team.leader.contribution ? (
+                      <div className="mt-2 pt-2 border-t border-slate-200/60">
+                        <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1 mb-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>Documented Contribution:</span>
+                        </div>
+                        <div className="text-xs text-slate-800 font-medium bg-white p-2.5 rounded-lg border border-slate-200/70 leading-relaxed">
+                          {project.team.leader.contribution}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-slate-400 italic pt-1">No contribution summary submitted yet</div>
+                    )}
                   </div>
                 )}
 
@@ -254,11 +317,11 @@ export default function ProjectDetailView({
                 {project.team.members && project.team.members.length > 0 && (
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
-                      Team Members & Configured Roles ({project.team.members.length})
+                      Team Members & Contributions ({project.team.members.length})
                     </span>
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       {project.team.members.map((m, idx) => (
-                        <div key={idx} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50 text-xs space-y-1">
+                        <div key={idx} className="p-2.5 rounded-lg border border-slate-200/80 bg-slate-50 text-xs space-y-1.5">
                           <div className="flex items-center justify-between">
                             <span className="font-semibold text-slate-900">{m.name}</span>
                             <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-200/70 text-slate-700">
@@ -269,6 +332,21 @@ export default function ProjectDetailView({
                             <Mail className="w-3 h-3 text-slate-400" />
                             <span>{m.email}</span>
                           </div>
+
+                          {/* Member Contribution */}
+                          {m.contribution ? (
+                            <div className="mt-1.5 pt-1.5 border-t border-slate-200/60">
+                              <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1 mb-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>Documented Contribution:</span>
+                              </div>
+                              <div className="text-xs text-slate-800 font-medium bg-white p-2 rounded-lg border border-slate-200/70 leading-relaxed">
+                                {m.contribution}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-slate-400 italic pt-0.5">No contribution summary submitted yet</div>
+                          )}
                         </div>
                       ))}
                     </div>

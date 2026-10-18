@@ -109,7 +109,8 @@ export default function TeamWorkspacePage({
     email: project?.team?.lead?.email || project?.team?.leader?.email || project?.invitedLeadEmail || '',
     rollNo: project?.team?.lead?.rollNo || project?.team?.leader?.rollNo || '',
     role: project?.team?.lead?.role || project?.team?.leader?.role || 'Team Lead',
-    githubUsername: project?.team?.lead?.githubUsername || project?.team?.leader?.githubUsername || ''
+    githubUsername: project?.team?.lead?.githubUsername || project?.team?.leader?.githubUsername || '',
+    contribution: project?.team?.lead?.contribution || project?.team?.leader?.contribution || ''
   }));
 
   const [teamMembers, setTeamMembers] = useState(() => {
@@ -121,11 +122,16 @@ export default function TeamWorkspacePage({
         rollNo: m.rollNo || '',
         role: m.role || 'Project Contributor',
         githubUsername: m.githubUsername || '',
+        contribution: m.contribution || '',
         tasksAssigned: m.tasksAssigned || 0
       }));
     }
     return [];
   });
+
+  // Student Project Brief & Live Status states
+  const [studentSummary, setStudentSummary] = useState(project?.studentSummary || '');
+  const [currentStatusNote, setCurrentStatusNote] = useState(project?.currentStatusNote || '');
 
   const [githubRepoUrl, setGithubRepoUrl] = useState(
     project?.githubUrl || project?.githubStats?.repoUrl || ''
@@ -142,6 +148,8 @@ export default function TeamWorkspacePage({
   const [editMembers, setEditMembers] = useState([...teamMembers]);
   const [editGithubUrl, setEditGithubUrl] = useState(githubRepoUrl);
   const [editBranch, setEditBranch] = useState(gitBranch);
+  const [editStudentSummary, setEditStudentSummary] = useState(studentSummary);
+  const [editCurrentStatusNote, setEditCurrentStatusNote] = useState(currentStatusNote);
 
   // Quick add member inputs in modal
   const [newMemberName, setNewMemberName] = useState('');
@@ -149,6 +157,7 @@ export default function TeamWorkspacePage({
   const [newMemberRoll, setNewMemberRoll] = useState('');
   const [newMemberRole, setNewMemberRole] = useState('Frontend Developer');
   const [newMemberGithub, setNewMemberGithub] = useState('');
+  const [newMemberContribution, setNewMemberContribution] = useState('');
 
   // New task modal state
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
@@ -170,6 +179,8 @@ export default function TeamWorkspacePage({
     setEditMembers([...teamMembers]);
     setEditGithubUrl(githubRepoUrl);
     setEditBranch(gitBranch);
+    setEditStudentSummary(studentSummary || project?.studentSummary || '');
+    setEditCurrentStatusNote(currentStatusNote || project?.currentStatusNote || '');
     setTeamSaveFeedback('');
     setShowTeamModal(true);
   };
@@ -189,6 +200,7 @@ export default function TeamWorkspacePage({
       rollNo: cleanRoll,
       role: newMemberRole.trim() || 'Project Contributor',
       githubUsername: newMemberGithub.trim().replace(/^@/, '') || newMemberName.trim().toLowerCase().replace(/\s+/g, '-'),
+      contribution: newMemberContribution.trim(),
       tasksAssigned: 0
     };
     setEditMembers(prev => [...prev, newMember]);
@@ -196,6 +208,7 @@ export default function TeamWorkspacePage({
     setNewMemberEmail('');
     setNewMemberRoll('');
     setNewMemberGithub('');
+    setNewMemberContribution('');
   };
 
   // Remove a member in the modal edit list
@@ -203,7 +216,7 @@ export default function TeamWorkspacePage({
     setEditMembers(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Save team & GitHub repository details
+  // Save team, project brief & GitHub repository details
   const handleSaveTeamSettings = async (e) => {
     e && e.preventDefault();
     setIsSavingTeam(true);
@@ -213,11 +226,15 @@ export default function TeamWorkspacePage({
     const updatedMembers = [...editMembers];
     const updatedUrl = editGithubUrl.trim();
     const updatedBranch = editBranch.trim() || 'main';
+    const updatedSummary = editStudentSummary.trim();
+    const updatedStatusNote = editCurrentStatusNote.trim();
 
     setTeamLead(updatedLead);
     setTeamMembers(updatedMembers);
     setGithubRepoUrl(updatedUrl);
     setGitBranch(updatedBranch);
+    setStudentSummary(updatedSummary);
+    setCurrentStatusNote(updatedStatusNote);
 
     // Sync to parent project instance
     if (project) {
@@ -228,6 +245,9 @@ export default function TeamWorkspacePage({
         members: updatedMembers
       };
       project.githubUrl = updatedUrl;
+      project.studentSummary = updatedSummary;
+      project.currentStatusNote = updatedStatusNote;
+      project.summaryLastUpdatedAt = new Date();
     }
 
     try {
@@ -237,6 +257,8 @@ export default function TeamWorkspacePage({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          studentSummary: updatedSummary,
+          currentStatusNote: updatedStatusNote,
           leader: updatedLead,
           members: updatedMembers,
           githubUrl: updatedUrl,
@@ -244,14 +266,14 @@ export default function TeamWorkspacePage({
           webhookUrl: targetTrackingUrl
         })
       });
-      setTeamSaveFeedback('Team details and GitHub repository updated successfully!');
+      setTeamSaveFeedback('Team details, project brief, and contributions saved successfully!');
       setTimeout(() => {
         setShowTeamModal(false);
         setTeamSaveFeedback('');
       }, 1000);
     } catch (err) {
       console.warn('Backend sync notice:', err.message);
-      setTeamSaveFeedback('Team details saved to workspace!');
+      setTeamSaveFeedback('Details saved to local workspace session!');
       setTimeout(() => {
         setShowTeamModal(false);
         setTeamSaveFeedback('');
@@ -737,7 +759,7 @@ export default function TeamWorkspacePage({
                     style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', padding: '8px 16px', fontSize: 12.5 }}
                   >
                     <Users style={{ width: 14, height: 14 }} />
-                    Manage Team Details
+                    Manage Team & Brief
                   </button>
                 </div>
               </div>
@@ -747,6 +769,79 @@ export default function TeamWorkspacePage({
 
                 {/* LEFT COLUMN */}
                 <div className="twp-overview-left">
+
+                  {/* Student-Authored Project Summary & Current Status */}
+                  <div className="twp-card" style={{ border: '1.5px solid #e0e7ff', background: '#faf5ff' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <div className="twp-card-title" style={{ margin: 0, color: '#4338ca' }}>
+                        <Sparkles style={{ width: 14, height: 14, color: '#7c3aed' }} className="twp-card-title-icon" />
+                        Student Project Summary & Live Status
+                      </div>
+                      <button
+                        onClick={handleOpenTeamModal}
+                        style={{
+                          background: '#ede9fe',
+                          border: '1px solid #c4b5fd',
+                          color: '#6d28d9',
+                          borderRadius: 6,
+                          padding: '4px 10px',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4
+                        }}
+                      >
+                        <Edit3 style={{ width: 11, height: 11 }} />
+                        Edit Brief
+                      </button>
+                    </div>
+
+                    {studentSummary ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <p className="twp-desc-text" style={{ color: '#1e1b4b', background: '#fff', padding: '12px 14px', borderRadius: 10, border: '1px solid #f3e8ff', margin: 0, lineHeight: 1.6 }}>
+                          {studentSummary}
+                        </p>
+                        {currentStatusNote && (
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', background: '#ecfdf5', borderRadius: 8, border: '1px solid #a7f3d0', fontSize: 12, color: '#065f46' }}>
+                            <CheckCircle2 style={{ width: 15, height: 15, color: '#059669', flexShrink: 0, marginTop: 1 }} />
+                            <div>
+                              <strong style={{ display: 'block', fontSize: 10.5, textTransform: 'uppercase', color: '#047857' }}>Current Sprint Status:</strong>
+                              <span>{currentStatusNote}</span>
+                            </div>
+                          </div>
+                        )}
+                        {project?.summaryLastUpdatedAt && (
+                          <div style={{ fontSize: 10.5, color: '#8b5cf6', fontFamily: 'monospace', textAlign: 'right' }}>
+                            Updated by team: {new Date(project.summaryLastUpdatedAt).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ padding: '14px', background: '#fff', borderRadius: 8, border: '1px dashed #d8b4fe', textAlign: 'center' }}>
+                        <p style={{ margin: 0, fontSize: 12, color: '#6b21a8' }}>
+                          Your team has not documented your custom project summary or live sprint status yet.
+                        </p>
+                        <button
+                          onClick={handleOpenTeamModal}
+                          style={{
+                            marginTop: 8,
+                            background: '#7c3aed',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: 6,
+                            padding: '6px 14px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          + Write Project Summary & Status
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Description */}
                   <div className="twp-card">
@@ -1549,6 +1644,13 @@ export default function TeamWorkspacePage({
                     Role: <span style={{ color: '#2563eb' }}>{teamLead.role}</span>
                   </div>
 
+                  {teamLead.contribution && (
+                    <div style={{ marginTop: 10, padding: '8px 10px', background: '#eef2ff', borderRadius: 8, border: '1px solid #c7d2fe', fontSize: 11.5, color: '#312e81' }}>
+                      <strong style={{ display: 'block', fontSize: 9.5, color: '#4338ca', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>Key Contribution:</strong>
+                      {teamLead.contribution}
+                    </div>
+                  )}
+
                   {teamLead.githubUsername && (
                     <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #e0e7ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <a
@@ -1621,6 +1723,13 @@ export default function TeamWorkspacePage({
                       <Mail style={{ width: 11, height: 11, color: '#94a3b8' }} />
                       <span style={{ fontFamily: 'monospace' }}>{m.email}</span>
                     </div>
+
+                    {m.contribution && (
+                      <div style={{ marginTop: 8, padding: '7px 10px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 11.5, color: '#334155', lineHeight: 1.4 }}>
+                        <strong style={{ display: 'block', fontSize: 9.5, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>Key Contribution:</strong>
+                        {m.contribution}
+                      </div>
+                    )}
 
                     <div style={{ marginTop: 'auto', paddingTop: 10, borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       {m.githubUsername ? (
@@ -1878,8 +1987,8 @@ export default function TeamWorkspacePage({
                   <Users style={{ width: 20, height: 20 }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>Manage Team & GitHub Repository</div>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>Configure project lead, student members, and Git webhook integration</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>Manage Team, Project Brief & Contributions</div>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>Configure project summary, live development status, team roster, and individual deliverables</div>
                 </div>
               </div>
               <button
@@ -1923,6 +2032,68 @@ export default function TeamWorkspacePage({
                   {teamSaveFeedback}
                 </div>
               )}
+
+              {/* 0. Project Summary & Live Development Status Section */}
+              <div style={{ background: '#faf5ff', border: '1.5px solid #d8b4fe', borderRadius: 12, padding: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                  <Sparkles style={{ width: 16, height: 16, color: '#7c3aed' }} />
+                  <span style={{ fontSize: 13, fontWeight: 800, color: '#581c87', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Project Brief & Live Development Status
+                  </span>
+                </div>
+                
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: '#581c87', display: 'block', marginBottom: 5 }}>
+                    Detailed Project Summary & Abstract (Student-Authored)
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Provide a comprehensive explanation of what your project accomplishes, target users, problem solved, and key architectural modules..."
+                    value={editStudentSummary}
+                    onChange={e => setEditStudentSummary(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: '#fff',
+                      border: '1px solid #c084fc',
+                      borderRadius: 8,
+                      padding: '10px 12px',
+                      fontSize: 12.5,
+                      color: '#0f172a',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      fontFamily: 'inherit',
+                      lineHeight: 1.5,
+                      resize: 'vertical'
+                    }}
+                  />
+                  <div style={{ fontSize: 10.5, color: '#7e22ce', marginTop: 4 }}>
+                    Displayed directly on your team workspace and to department administrators in the Project Master Directory.
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: '#581c87', display: 'block', marginBottom: 5 }}>
+                    Current Development Status / Sprint Notes
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Phase 2 Complete: Connected MongoDB Atlas, working on GitHub webhook telemetry listener"
+                    value={editCurrentStatusNote}
+                    onChange={e => setEditCurrentStatusNote(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: '#fff',
+                      border: '1px solid #c084fc',
+                      borderRadius: 8,
+                      padding: '9px 12px',
+                      fontSize: 12.5,
+                      color: '#0f172a',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
 
               {/* 1. GitHub Repository & Webhook URL Section */}
               <div>
@@ -2173,6 +2344,18 @@ export default function TeamWorkspacePage({
                       style={{ width: '100%', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, color: '#0f172a', outline: 'none', boxSizing: 'border-box' }}
                     />
                   </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
+                      Lead's Key Contributions & Deliverables
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={editLead.contribution || ''}
+                      onChange={e => setEditLead(prev => ({ ...prev, contribution: e.target.value }))}
+                      placeholder="e.g. Architected database schemas, established authentication, and configured deployment pipelines..."
+                      style={{ width: '100%', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#0f172a', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical' }}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -2182,64 +2365,80 @@ export default function TeamWorkspacePage({
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Users style={{ width: 16, height: 16, color: '#6366f1' }} />
                     <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      3. Team Members Roster ({editMembers.length})
+                      3. Team Members Roster & Contributions ({editMembers.length})
                     </span>
                   </div>
                 </div>
 
                 {/* Existing Members List */}
                 {editMembers.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
                     {editMembers.map((m, idx) => (
                       <div
                         key={idx}
                         style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '10px 14px',
+                          padding: '12px 14px',
                           background: '#f8fafc',
                           border: '1px solid #e2e8f0',
                           borderRadius: 10
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 30, height: 30, borderRadius: 8, background: '#ede9fe', color: '#6366f1', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {initials(m.name)}
-                          </div>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
-                              {m.name}{' '}
-                              <span style={{ fontSize: 10.5, fontWeight: 600, color: '#2563eb', background: '#eff6ff', padding: '1px 6px', borderRadius: 4, marginLeft: 4 }}>
-                                {m.role}
-                              </span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 30, height: 30, borderRadius: 8, background: '#ede9fe', color: '#6366f1', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {initials(m.name)}
                             </div>
-                            <div style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>
-                              {m.email} · {m.rollNo} {m.githubUsername ? `· @${m.githubUsername}` : ''}
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                                {m.name}{' '}
+                                <span style={{ fontSize: 10.5, fontWeight: 600, color: '#2563eb', background: '#eff6ff', padding: '1px 6px', borderRadius: 4, marginLeft: 4 }}>
+                                  {m.role}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>
+                                {m.email} · {m.rollNo} {m.githubUsername ? `· @${m.githubUsername}` : ''}
+                              </div>
                             </div>
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMemberFromEditList(idx)}
+                            style={{
+                              background: '#fef2f2',
+                              border: '1px solid #fee2e2',
+                              color: '#ef4444',
+                              borderRadius: 6,
+                              padding: '5px 8px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              fontSize: 11
+                            }}
+                            title="Remove member"
+                          >
+                            <Trash2 style={{ width: 13, height: 13 }} />
+                            Remove
+                          </button>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveMemberFromEditList(idx)}
-                          style={{
-                            background: '#fef2f2',
-                            border: '1px solid #fee2e2',
-                            color: '#ef4444',
-                            borderRadius: 6,
-                            padding: '6px 8px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            fontSize: 11
-                          }}
-                          title="Remove member"
-                        >
-                          <Trash2 style={{ width: 13, height: 13 }} />
-                          Remove
-                        </button>
+                        {/* Editable Member Contribution */}
+                        <div style={{ marginTop: 8 }}>
+                          <label style={{ fontSize: 10.5, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 2 }}>
+                            Documented Contribution / Module Deliverable:
+                          </label>
+                          <input
+                            type="text"
+                            value={m.contribution || ''}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setEditMembers(prev => prev.map((item, i) => i === idx ? { ...item, contribution: val } : item));
+                            }}
+                            placeholder="e.g. Implemented Kanban task workflows and responsive design tokens..."
+                            style={{ width: '100%', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 6, padding: '7px 10px', fontSize: 11.5, color: '#0f172a', outline: 'none', boxSizing: 'border-box' }}
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -2297,12 +2496,21 @@ export default function TeamWorkspacePage({
                         <option>QA Testing & Documentation</option>
                       </select>
                     </div>
-                    <div style={{ gridColumn: 'span 2' }}>
+                    <div>
                       <input
                         type="text"
                         placeholder="GitHub Username (e.g. priya-dev)"
                         value={newMemberGithub}
                         onChange={e => setNewMemberGithub(e.target.value)}
+                        style={{ width: '100%', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 10px', fontSize: 12, color: '#0f172a', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Initial Contribution (Optional)"
+                        value={newMemberContribution}
+                        onChange={e => setNewMemberContribution(e.target.value)}
                         style={{ width: '100%', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 10px', fontSize: 12, color: '#0f172a', outline: 'none', boxSizing: 'border-box' }}
                       />
                     </div>

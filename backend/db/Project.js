@@ -13,6 +13,7 @@ const memberSchema = new mongoose.Schema({
   rollNo: { type: String, trim: true, default: '' },
   role: { type: String, trim: true, default: 'Project Contributor' },
   githubUsername: { type: String, trim: true, default: '' },
+  contribution: { type: String, trim: true, default: '' },
   status: {
     type: String,
     enum: ['pending', 'active'],
@@ -32,7 +33,8 @@ const teamSchema = new mongoose.Schema({
     roleTitle: { type: String, default: '' },
     rollNo: { type: String, default: '' },
     role: { type: String, default: 'Team Lead' },
-    githubUsername: { type: String, default: '' }
+    githubUsername: { type: String, default: '' },
+    contribution: { type: String, default: '', trim: true }
   },
   members: [memberSchema]
 }, { _id: false });
@@ -201,6 +203,20 @@ const projectSchema = new mongoose.Schema({
   currentMilestone: {
     type: String,
     default: 'Project Initiation & Setup'
+  },
+  studentSummary: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  currentStatusNote: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  summaryLastUpdatedAt: {
+    type: Date,
+    default: null
   },
   lastActivityDate: {
     type: Date,
