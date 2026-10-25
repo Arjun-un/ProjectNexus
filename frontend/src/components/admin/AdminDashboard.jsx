@@ -24,6 +24,7 @@ import {
 import DashboardHomeView from './DashboardHomeView';
 import ProjectListView from './ProjectListView';
 import ProjectDetailView from './ProjectDetailView';
+import TeamsDirectoryView from './TeamsDirectoryView';
 import CreateProjectModal from './CreateProjectModal';
 import SendInviteModal from './SendInviteModal';
 import './AdminDashboard.css';
@@ -170,7 +171,7 @@ const INITIAL_PROJECTS = [
   }
 ];
 
-export default function AdminDashboard({ adminUser, onLogout }) {
+export default function AdminDashboard({ adminUser, onLogout, onOpenHandover }) {
   // Navigation & section states
   const [currentSection, setCurrentSection] = useState('dashboard');
   const [selectedProjectId, setSelectedProjectId] = useState(null);
@@ -340,6 +341,61 @@ export default function AdminDashboard({ adminUser, onLogout }) {
       }
       return p;
     }));
+  };
+
+  // Toggle or mark project completed with backend persistence
+  const handleMarkCompleted = async (project, e) => {
+    e && e.stopPropagation();
+    const pid = project.projectId || project._id;
+    const isAlreadyCompleted = project.status === 'Completed';
+    const nextStatus = isAlreadyCompleted ? 'Active' : 'Completed';
+    const nextProgress = isAlreadyCompleted ? (project.progress && project.progress < 100 ? project.progress : 75) : 100;
+
+    // Optimistically update local projects state
+    setProjects(prev => prev.map(p => {
+      if (p.projectId === pid || p._id === pid) {
+        return {
+          ...p,
+          status: nextStatus,
+          progress: nextProgress,
+          timeline: [
+            {
+              _id: 'tl_status_' + Date.now(),
+              title: isAlreadyCompleted ? 'Project Status Reverted to Active' : 'Project Marked as Completed',
+              description: isAlreadyCompleted
+                ? 'Institutional Administrator reverted project status back to Active.'
+                : 'Institutional Administrator approved project deliverables and marked status as Completed (100% progress).',
+              timestamp: 'Just now',
+              type: 'status_change'
+            },
+            ...(p.timeline || [])
+          ]
+        };
+      }
+      return p;
+    }));
+
+    // Persist to backend database
+    try {
+      await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(pid)}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: nextStatus,
+          progress: nextProgress
+        })
+      });
+    } catch (err) {
+      console.error('Failed to sync project status to backend:', err);
+    }
+  };
+
+  // Open the project directly inside the Handover Engine dossier
+  const handleOpenHandover = (project, e) => {
+    e && e.stopPropagation();
+    if (onOpenHandover) {
+      onOpenHandover(project);
+    }
   };
 
   // Helper badge styles matching design system
@@ -679,6 +735,9 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               onOpenSendInvite={(p) => setSendInviteProject(p)}
               onRegenerateCode={handleRegenerateCode}
               onRevokeCode={handleRevokeCode}
+              onDeleteProject={handleDeleteProject}
+              onMarkCompleted={handleMarkCompleted}
+              onOpenHandover={handleOpenHandover}
               getCategoryBadge={getCategoryBadge}
               getStatusBadge={getStatusBadge}
               getHealthBadge={getHealthBadge}
@@ -722,35 +781,17 @@ export default function AdminDashboard({ adminUser, onLogout }) {
               getCategoryBadge={getCategoryBadge}
               getStatusBadge={getStatusBadge}
               onDeleteProject={handleDeleteProject}
+              onMarkCompleted={handleMarkCompleted}
+              onOpenHandover={handleOpenHandover}
             />
           ) : currentSection === 'teams' ? (
-            <div className="space-y-6 max-w-7xl mx-auto">
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900">Student Project Teams</h1>
-                <p className="text-xs text-slate-500 mt-1">Directory of registered teams and their configured member roles.</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {projects.filter(p => p.team?.name).map(p => (
-                  <div key={p.projectId} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-slate-900 text-sm">{p.team.name}</h3>
-                      {getCategoryBadge(p.category)}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      <strong>Project:</strong> {p.title} ({p.projectId})
-                    </div>
-                    <div className="text-xs text-slate-600 pt-2 border-t border-slate-100">
-                      <div><strong>Lead:</strong> {p.team.leader.name}</div>
-                      <div className="text-[11px] text-blue-600 font-medium">{p.team.leader.role || 'Team Lead'}</div>
-                      <div className="text-[11px] text-slate-400">{p.team.leader.email}</div>
-                    </div>
-                    <div className="text-[11px] text-slate-400">
-                      {p.team.members?.length || 0} active members with assigned roles
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <TeamsDirectoryView
+              projects={projects}
+              onSelectProject={(id) => setSelectedProjectId(id)}
+              onOpenSendInvite={(p) => setSendInviteProject(p)}
+              getCategoryBadge={getCategoryBadge}
+              getHealthBadge={getHealthBadge}
+            />
           ) : currentSection === 'departments' ? (
             <div className="space-y-6 max-w-7xl mx-auto">
               <div>

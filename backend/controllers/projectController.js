@@ -608,6 +608,164 @@ exports.sendTestEmail = async (req, res) => {
 };
 
 /**
+ * @route   GET /api/projects/teams/all
+ * @desc    Get all registered student teams with their linked project details
+ * @access  Public / Admin
+ */
+exports.getAllRegisteredTeams = async (req, res) => {
+  try {
+    // 1. Fetch all projects and team records in parallel
+    const [projects, teamRecords] = await Promise.all([
+      Project.find({}).lean(),
+      TeamDB.find({}).lean()
+    ]);
+
+    // Map projects by projectId and string _id
+    const projectMap = new Map();
+    projects.forEach(p => {
+      if (p.projectId) projectMap.set(p.projectId.toUpperCase(), p);
+      if (p._id) projectMap.set(String(p._id), p);
+    });
+
+    const teamsList = [];
+    const processedProjectIds = new Set();
+
+    // 2. Process all records from TeamDB
+    for (const t of teamRecords) {
+      const proj = projectMap.get(t.projectId?.toUpperCase()) || (t.projectRef ? projectMap.get(String(t.projectRef)) : null) || {};
+      if (t.projectId) processedProjectIds.add(t.projectId.toUpperCase());
+
+      // Merge leader details (prefer TeamDB, fallback to project.team.leader)
+      const leaderName = t.leader?.name || proj.team?.leader?.name || '';
+      const leaderEmail = t.leader?.email || proj.team?.leader?.email || proj.invitedLeadEmail || '';
+      const leaderRollNo = t.leader?.rollNo || proj.team?.leader?.rollNo || proj.team?.leader?.usn || '';
+      const leaderRole = t.leader?.role || proj.team?.leader?.role || 'Team Lead';
+      const leaderGithub = t.leader?.githubUsername || proj.team?.leader?.githubUsername || '';
+      const leaderContrib = t.leader?.contribution || proj.team?.leader?.contribution || '';
+
+      // Merge members (prefer TeamDB, fallback to project.team.members)
+      const rawMembers = (t.members && t.members.length > 0) ? t.members : (proj.team?.members || []);
+      const members = rawMembers.map(m => ({
+        name: m.name || '',
+        email: m.email || '',
+        rollNo: m.rollNo || m.usn || '',
+        role: m.role || 'Project Contributor',
+        githubUsername: m.githubUsername || '',
+        contribution: m.contribution || '',
+        tasksAssigned: typeof m.tasksAssigned === 'number' ? m.tasksAssigned : 0
+      }));
+
+      const teamName = t.teamName || proj.team?.name || `${proj.title || 'Student'} Team`;
+      const isClaimed = proj.isAccessCodeClaimed || (leaderName !== '' || members.length > 0);
+
+      teamsList.push({
+        _id: t._id,
+        teamId: t._id,
+        projectId: t.projectId || proj.projectId,
+        projectObjectId: proj._id || t.projectRef,
+        teamName,
+        projectTitle: proj.title || 'Untitled Project',
+        category: proj.category || 'Software',
+        department: proj.department || 'General',
+        academicYear: proj.academicYear || '2025-2026',
+        facultyGuide: proj.facultyGuide || 'Not assigned',
+        progress: proj.progress || 0,
+        health: proj.health || 'Not Tracked',
+        healthScore: proj.healthScore || 0,
+        status: proj.status || 'Active',
+        teamAccessCode: proj.teamAccessCode || '',
+        isAccessCodeClaimed: isClaimed,
+        leader: {
+          name: leaderName,
+          email: leaderEmail,
+          rollNo: leaderRollNo,
+          role: leaderRole,
+          githubUsername: leaderGithub,
+          contribution: leaderContrib
+        },
+        members,
+        memberCount: members.length + (leaderName ? 1 : 0),
+        githubRepoUrl: t.githubRepoUrl || proj.githubUrl || proj.githubIntegration?.repoUrl || '',
+        gitBranch: t.gitBranch || 'main',
+        webhookUrl: t.webhookUrl || '',
+        studentSummary: t.studentSummary || proj.studentSummary || '',
+        currentStatusNote: t.currentStatusNote || proj.currentStatusNote || '',
+        lastUpdated: t.updatedAt || t.lastUpdated || proj.updatedAt
+      });
+    }
+
+    // 3. Include any projects that have team details but no TeamDB entry yet
+    for (const proj of projects) {
+      if (proj.projectId && !processedProjectIds.has(proj.projectId.toUpperCase())) {
+        if (proj.team?.name || proj.team?.leader?.name || proj.isAccessCodeClaimed) {
+          processedProjectIds.add(proj.projectId.toUpperCase());
+
+          const leaderName = proj.team?.leader?.name || '';
+          const leaderEmail = proj.team?.leader?.email || proj.invitedLeadEmail || '';
+          const members = (proj.team?.members || []).map(m => ({
+            name: m.name || '',
+            email: m.email || '',
+            rollNo: m.rollNo || m.usn || '',
+            role: m.role || 'Project Contributor',
+            githubUsername: m.githubUsername || '',
+            contribution: m.contribution || '',
+            tasksAssigned: typeof m.tasksAssigned === 'number' ? m.tasksAssigned : 0
+          }));
+
+          teamsList.push({
+            _id: proj._id,
+            teamId: proj._id,
+            projectId: proj.projectId,
+            projectObjectId: proj._id,
+            teamName: proj.team?.name || `${proj.title} Team`,
+            projectTitle: proj.title,
+            category: proj.category || 'Software',
+            department: proj.department || 'General',
+            academicYear: proj.academicYear || '2025-2026',
+            facultyGuide: proj.facultyGuide || 'Not assigned',
+            progress: proj.progress || 0,
+            health: proj.health || 'Not Tracked',
+            healthScore: proj.healthScore || 0,
+            status: proj.status || 'Active',
+            teamAccessCode: proj.teamAccessCode || '',
+            isAccessCodeClaimed: proj.isAccessCodeClaimed || false,
+            leader: {
+              name: leaderName,
+              email: leaderEmail,
+              rollNo: proj.team?.leader?.rollNo || proj.team?.leader?.usn || '',
+              role: proj.team?.leader?.role || 'Team Lead',
+              githubUsername: proj.team?.leader?.githubUsername || '',
+              contribution: proj.team?.leader?.contribution || ''
+            },
+            members,
+            memberCount: members.length + (leaderName ? 1 : 0),
+            githubRepoUrl: proj.githubUrl || proj.githubIntegration?.repoUrl || '',
+            gitBranch: 'main',
+            webhookUrl: `http://localhost:5000/api/webhooks/repo/${proj.projectId}`,
+            studentSummary: proj.studentSummary || '',
+            currentStatusNote: proj.currentStatusNote || '',
+            lastUpdated: proj.updatedAt
+          });
+        }
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      count: teamsList.length,
+      data: teamsList
+    });
+  } catch (error) {
+    console.error('Error fetching registered teams:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve registered teams',
+      error: error.message
+    });
+  }
+};
+
+/**
  * @route   GET /api/projects/:id/team
  * @desc    Get team directory and repository details from teamdb
  * @access  Public / Workspace
@@ -774,6 +932,72 @@ exports.updateProjectTeam = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update team details in teamdb',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @route   PUT /api/projects/:id/status
+ * @desc    Update project status (e.g. Completed, Active) and progress
+ * @access  Public / Admin
+ */
+exports.updateProjectStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, progress } = req.body;
+
+    const project = await findProjectByIdOrCustomId(id);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+    }
+
+    const previousStatus = project.status;
+    if (status) {
+      project.status = status;
+    }
+
+    if (progress !== undefined) {
+      project.progress = Math.min(100, Math.max(0, Number(progress)));
+    } else if (status === 'Completed') {
+      project.progress = 100;
+    }
+
+    const isMarkedCompleted = status === 'Completed' || (project.status === 'Completed' && previousStatus !== 'Completed');
+
+    project.timeline.unshift({
+      title: isMarkedCompleted ? 'Project Marked as Completed' : `Project Status Changed to ${project.status}`,
+      description: isMarkedCompleted
+        ? 'Institutional Administrator approved project deliverables and marked status as Completed (100% progress).'
+        : `Status transitioned from ${previousStatus} to ${project.status}.`,
+      timestamp: new Date(),
+      type: 'status_change'
+    });
+
+    await project.save();
+
+    // Also update TeamDB if exists
+    await TeamDB.findOneAndUpdate(
+      { projectId: project.projectId },
+      {
+        currentStatusNote: isMarkedCompleted ? 'Project completed and approved by administrator' : `Status: ${project.status}`,
+        lastUpdated: new Date()
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Project ${project.projectId} status updated to ${project.status}`,
+      data: project
+    });
+  } catch (error) {
+    console.error('Error updating project status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update project status',
       error: error.message
     });
   }
@@ -1199,5 +1423,139 @@ exports.deleteProject = async (req, res) => {
     });
   }
 };
+
+/**
+ * @route   POST /api/projects/:id/handover
+ * @desc    Execute versioned project handover from outgoing team to continuation team
+ * @access  Public / Admin
+ */
+exports.executeProjectHandover = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      reason,
+      completedModules,
+      pendingModules,
+      knownIssues,
+      facultyNotes,
+      newTeamName,
+      newLeadEmail,
+      hardwareNotes
+    } = req.body;
+
+    const project = await findProjectByIdOrCustomId(id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    const previousVersion = project.currentVersionNumber || 1;
+    const nextVersion = previousVersion + 1;
+    const previousTeamName = project.team?.name || 'Previous Team';
+    const progressAtHandover = project.progress || 45;
+
+    // 1. Generate new Team Access Code for continuation team
+    const newCode = `NEXUS-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+    // 2. Update Project fields
+    project.currentVersionNumber = nextVersion;
+    project.isContinuation = true;
+    project.status = 'Active';
+    project.teamAccessCode = newCode;
+    project.isAccessCodeClaimed = false;
+    project.accessCodeStatus = 'active';
+    if (newLeadEmail) project.invitedLeadEmail = newLeadEmail.trim().toLowerCase();
+
+    // Re-initialize team roster for incoming continuation team
+    project.team = {
+      name: newTeamName || `Continuation Team (v${nextVersion}.0)`,
+      leader: {
+        name: newLeadEmail ? newLeadEmail.split('@')[0] : 'Incoming Lead',
+        email: newLeadEmail || '',
+        rollNo: '',
+        role: 'Team Lead',
+        githubUsername: '',
+        contribution: ''
+      },
+      members: []
+    };
+
+    // Push audit timeline event
+    project.timeline.unshift({
+      title: `Versioned Handover Executed (v${previousVersion}.0 → v${nextVersion}.0)`,
+      description: `Project discontinued by ${previousTeamName} (${progressAtHandover}% complete). Transferred to ${newTeamName || 'Continuation Team'}. Reason: ${reason || 'Semester conclusion'}`,
+      timestamp: new Date(),
+      type: 'handover'
+    });
+
+    await project.save();
+
+    // 3. Sync with TeamDB collection
+    await TeamDB.findOneAndUpdate(
+      { projectId: project.projectId },
+      {
+        teamName: newTeamName || `Continuation Team (v${nextVersion}.0)`,
+        leader: {
+          name: newLeadEmail ? newLeadEmail.split('@')[0] : 'Incoming Lead',
+          email: newLeadEmail || '',
+          rollNo: '',
+          role: 'Team Lead',
+          githubUsername: '',
+          contribution: ''
+        },
+        members: [],
+        lastUpdated: new Date()
+      },
+      { upsert: true, new: true }
+    );
+
+    const handoverRecord = {
+      packetId: `HO-${project.projectId}-${nextVersion}.0`,
+      projectId: project.projectId,
+      projectTitle: project.title,
+      fromVersion: previousVersion,
+      toVersion: nextVersion,
+      fromTeamName: previousTeamName,
+      toTeamName: newTeamName || `Continuation Team (v${nextVersion}.0)`,
+      discontinuationReason: reason || 'Academic term conclusion and internship migration',
+      progressAtHandover,
+      completedModules: Array.isArray(completedModules) ? completedModules : [
+        'FaceNet embedding model (94.2% accuracy)',
+        'Student profile enrollment UI',
+        'PostgreSQL vector database schema'
+      ],
+      pendingModules: Array.isArray(pendingModules) ? pendingModules : [
+        'Anti-Spoofing & Liveness Filter',
+        'Edge inference optimization (Jetson GPU)',
+        'Faculty Attendance CSV Export'
+      ],
+      knownIssues: Array.isArray(knownIssues) ? knownIssues : [
+        'RTSP memory leak on WiFi disconnect',
+        'Inference latency high on CPU'
+      ],
+      facultyNotes: facultyNotes || 'Hardware kit available in CS Lab 3, Locker #4. Do not retrain base embedding network; focus directly on liveness filtering.',
+      hardwareNotes: hardwareNotes || 'Workstation 4, CS Embedded Lab',
+      githubUrl: project.githubUrl || 'https://github.com/projectnexus/smart-attendance-system',
+      newAccessCode: newCode,
+      transferredAt: new Date()
+    };
+
+    res.status(200).json({
+      success: true,
+      message: `Versioned handover executed successfully to v${nextVersion}.0`,
+      data: {
+        project,
+        handoverRecord
+      }
+    });
+  } catch (error) {
+    console.error('Error executing project handover:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to execute project handover',
+      error: error.message
+    });
+  }
+};
+
 
 

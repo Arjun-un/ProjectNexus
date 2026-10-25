@@ -80,6 +80,7 @@ const NAV_ITEMS = [
   { id: 'milestones',     label: 'Milestones',     Icon: Flag },
   { id: 'tasks',          label: 'Task Board',     Icon: TrendingUp },
   { id: 'repository',     label: 'Repository',     Icon: FolderGit2 },
+  { id: 'continuity',     label: 'Continuity Protocol', Icon: GitFork, badge: 'v2.0' },
   { id: 'documents',      label: 'Documents',      Icon: FileText },
   { id: 'reviews',        label: 'Reviews',        Icon: Star },
   { id: 'team',           label: 'Team',           Icon: Users },
@@ -680,29 +681,32 @@ export default function TeamWorkspacePage({
                 </div>
 
                 {/* Continuation banner */}
-                {project.isContinuation && (
+                {(project.isContinuation || (project.currentVersionNumber && project.currentVersionNumber > 1) || handoverRecord) && (
                   <div style={{
                     marginTop: 18,
-                    background: 'rgba(139,92,246,0.12)',
-                    border: '1px solid rgba(139,92,246,0.3)',
-                    borderRadius: 12,
-                    padding: '10px 16px',
+                    background: 'linear-gradient(135deg, rgba(139,92,246,0.18) 0%, rgba(99,102,241,0.12) 100%)',
+                    border: '1px solid rgba(167,139,250,0.35)',
+                    borderRadius: 14,
+                    padding: '12px 18px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: 12,
                     flexWrap: 'wrap'
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#c4b5fd' }}>
-                      <Sparkles style={{ width: 14, height: 14, color: '#a78bfa', flexShrink: 0 }} />
-                      Inherited from <strong style={{ color: '#e2e8f0' }}>{project.previousTeam?.name}</strong> — discontinued at {project.previousTeam?.discontinuedAt}%. Handover packet active.
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: '#c4b5fd' }}>
+                      <Sparkles style={{ width: 16, height: 16, color: '#a78bfa', flexShrink: 0 }} />
+                      <span>
+                        <strong style={{ color: '#fff' }}>v{project.currentVersionNumber || 2}.0 Continuation Project Active:</strong> Inherited from <strong style={{ color: '#e2e8f0' }}>{project.previousTeam?.name || handoverRecord?.fromTeamName || 'Team Alpha'}</strong> at <strong>{project.previousTeam?.discontinuedAt || project.progress || 45}%</strong> completion baseline.
+                      </span>
                     </div>
                     <button
                       className="twp-btn-ghost"
-                      style={{ fontSize: 11, padding: '4px 12px', borderColor: 'rgba(139,92,246,0.4)', color: '#c4b5fd' }}
-                      onClick={onTriggerHandover}
+                      style={{ fontSize: 11.5, padding: '5px 14px', borderColor: 'rgba(167,139,250,0.5)', color: '#fff', background: 'rgba(139,92,246,0.25)', fontWeight: 700 }}
+                      onClick={() => setActiveNav('continuity')}
                     >
-                      View Handover <ArrowRight style={{ width: 12, height: 12 }} />
+                      <GitFork style={{ width: 13, height: 13 }} />
+                      <span>Open Continuity Protocol</span>
                     </button>
                   </div>
                 )}
@@ -1457,6 +1461,176 @@ export default function TeamWorkspacePage({
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ════ CONTINUITY PROTOCOL & HANDOVER DOSSIER ════ */}
+          {activeNav === 'continuity' && (
+            <div className="twp-fade-up">
+              <div className="twp-section-header">
+                <div>
+                  <div className="twp-section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <GitFork style={{ width: 18, height: 18, color: '#a78bfa' }} />
+                    <span>Versioned Continuity Protocol & Handover Dossier</span>
+                  </div>
+                  <div className="twp-section-sub">
+                    Institutional lineage preserving deliverables, technical debt, and codebase state across academic batches.
+                  </div>
+                </div>
+                {onTriggerHandover && (
+                  <button className="twp-btn-ghost" onClick={onTriggerHandover}>
+                    <RefreshCw style={{ width: 13, height: 13 }} />
+                    <span>Trigger Next Version Handover</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Lineage Transition Ribbon */}
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(15,23,42,0.85) 0%, rgba(30,27,75,0.85) 100%)',
+                border: '1px solid rgba(139,92,246,0.3)',
+                borderRadius: 16,
+                padding: '22px 26px',
+                marginBottom: 20,
+                display: 'grid',
+                gridTemplateColumns: '1fr auto 1fr',
+                alignItems: 'center',
+                gap: 16
+              }}>
+                <div>
+                  <span style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', color: '#f87171', letterSpacing: '0.06em' }}>
+                    Outgoing Version v{(project.currentVersionNumber || 2) - 1}.0 (Archived)
+                  </span>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 3 }}>
+                    {project.previousTeam?.name || handoverRecord?.fromTeamName || 'Alpha Visionary Labs'}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>
+                    Discontinued at <strong>{project.previousTeam?.discontinuedAt || project.progress || 45}%</strong> completion • {handoverRecord?.discontinuationReason || 'Internship graduation'}
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'center', color: '#a78bfa', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                  <span style={{ fontSize: 9.5, fontWeight: 800, background: 'rgba(139,92,246,0.25)', color: '#ddd6fe', padding: '2px 8px', borderRadius: 9999, border: '1px solid rgba(167,139,250,0.4)', textTransform: 'uppercase' }}>
+                    Automated Protocol
+                  </span>
+                  <GitFork style={{ width: 22, height: 22, strokeWidth: 2.2 }} />
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: '#c4b5fd' }}>Handover Engine</span>
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', color: '#34d399', letterSpacing: '0.06em' }}>
+                    Continuation Version v{project.currentVersionNumber || 2}.0 (Active)
+                  </span>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 3 }}>
+                    {project.team?.name || 'Team Gamma (Continuation)'}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>
+                    Resumed from <strong>{project.previousTeam?.discontinuedAt || project.progress || 45}%</strong> baseline • Access code: <code style={{ color: '#a78bfa' }}>{project.teamAccessCode || 'NEXUS-G789'}</code>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2-Column Split: Deliverables vs Debt & Specs */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 20 }}>
+                
+                {/* Column 1: Deliverables vs Debt */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  
+                  {/* Verified Deliverables Card */}
+                  <div className="twp-card" style={{ border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(6,78,59,0.1)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <CheckCircle2 style={{ width: 16, height: 16 }} />
+                        <span>Verified Deliverables (Preserved v1.0)</span>
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 800, background: 'rgba(16,185,129,0.2)', color: '#34d399', padding: '2px 7px', borderRadius: 4 }}>
+                        3 Locked
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {(handoverRecord?.completedModules || [
+                        'FaceNet embedding model (94.2% validation accuracy)',
+                        'Student profile photo enrollment pipeline',
+                        'PostgreSQL vector database schema & indexing'
+                      ]).map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5, color: '#d1fae5', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <Check style={{ width: 14, height: 14, color: '#34d399', flexShrink: 0 }} />
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Technical Debt Backlog Card */}
+                  <div className="twp-card" style={{ border: '1px solid rgba(245,158,11,0.3)', background: 'rgba(120,53,15,0.1)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <AlertTriangle style={{ width: 16, height: 16 }} />
+                        <span>Inherited Technical Debt (v2.0 Backlog)</span>
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 800, background: 'rgba(245,158,11,0.2)', color: '#fbbf24', padding: '2px 7px', borderRadius: 4 }}>
+                        Pending Resolution
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {(handoverRecord?.pendingModules || [
+                        'Anti-Spoofing & Liveness Filter (RGB camera spoof bug)',
+                        'Edge inference optimization (TensorRT on Jetson GPU)',
+                        'Faculty Attendance CSV Export module'
+                      ]).map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5, color: '#fef3c7', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <AlertTriangle style={{ width: 14, height: 14, color: '#fbbf24', flexShrink: 0 }} />
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Column 2: Repository, Lab, Faculty Notes */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  
+                  {/* Codebase & Hardware Vault */}
+                  <div className="twp-card">
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <FolderGit2 style={{ width: 15, height: 15 }} />
+                      <span>Codebase Snapshot & Hardware Lab</span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
+                      <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Frozen Commit SHA:</span>
+                        <div style={{ fontFamily: 'monospace', fontWeight: 700, color: '#fff', marginTop: 2 }}>
+                          5fb748c (tag: v1.0-handover-archive)
+                        </div>
+                      </div>
+
+                      <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Physical Hardware Location:</span>
+                        <div style={{ fontWeight: 600, color: '#fff', marginTop: 2 }}>
+                          Embedded Systems Lab 3, Workstation #4 (Locker 4)
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Faculty Directive */}
+                  <div className="twp-card" style={{ border: '1px solid rgba(129,140,248,0.25)', background: 'rgba(99,102,241,0.08)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#c7d2fe', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <FileText style={{ width: 14, height: 14 }} />
+                      <span>Faculty Guide Directive • Prof. Vikram Malhotra</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 12, color: '#e2e8f0', fontStyle: 'italic', lineHeight: 1.5 }}>
+                      "{handoverRecord?.facultyGuidanceNotes || 'Hardware kit stored in CS Lab 3, Locker #4. Base embedding model verified. Do not rebuild from scratch — focus directly on liveness filtering and Jetson edge optimization.'}"
+                    </p>
+                  </div>
+
+                </div>
+
+              </div>
             </div>
           )}
 

@@ -5,6 +5,7 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import TeamWorkspacePage from './components/TeamWorkspacePage';
 import InviteModal from './components/InviteModal';
 import HandoverModal from './components/HandoverModal';
+import HandoverDossierPage from './components/HandoverDossierPage';
 import WorkspaceLoginPage from './components/WorkspaceLoginPage';
 import AccessCodePage from './components/AccessCodePage';
 import { 
@@ -282,8 +283,20 @@ export default function App() {
           onEnterAdmin={handleNavigateToAdmin}
           onEnterWorkspace={() => navigateTo('workspace-login')}
           onEnterAccessCode={() => navigateTo('access-code')}
-          onOpenHandoverDemo={() => handleOpenHandoverModal(activeProject)}
+          onOpenHandoverDemo={() => navigateTo('handover-dossier')}
           onOpenInviteModal={() => setIsInviteModalOpen(true)}
+        />
+      ) : currentView === 'handover-dossier' ? (
+        <HandoverDossierPage
+          project={selectedProjectForHandover || activeProject}
+          onBack={() => {
+            if (adminUser) navigateTo('admin');
+            else navigateTo('home');
+          }}
+          onLaunchContinuationWorkspace={(handoverData) => {
+            handleConfirmHandover(handoverData);
+            navigateTo('workspace');
+          }}
         />
       ) : currentView === 'workspace-login' ? (
         <WorkspaceLoginPage
@@ -304,6 +317,10 @@ export default function App() {
         <AdminDashboard
           adminUser={adminUser}
           onLogout={handleAdminLogout}
+          onOpenHandover={(proj) => {
+            setSelectedProjectForHandover(proj);
+            navigateTo('handover-dossier');
+          }}
         />
       ) : (
         <TeamWorkspacePage

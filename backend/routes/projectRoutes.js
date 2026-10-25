@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getProjectKPIs,
+  getAllRegisteredTeams,
   getProjects,
   getProjectById,
   createProject,
@@ -12,14 +13,17 @@ const {
   getProjectTeam,
   updateProjectTeam,
   updateStudentContributions,
+  updateProjectStatus,
   generateGithubWebhook,
   getGithubEvents,
   disconnectGithub,
-  deleteProject
+  deleteProject,
+  executeProjectHandover
 } = require('../controllers/projectController');
 
 // Routes for projects
 router.get('/kpis', getProjectKPIs);
+router.get('/teams/all', getAllRegisteredTeams);
 router.get('/', getProjects);
 router.post('/test-email', sendTestEmail);
 router.get('/:id/team', getProjectTeam);
@@ -27,11 +31,13 @@ router.get('/:id', getProjectById);
 router.post('/', createProject);
 router.put('/:id/team', updateProjectTeam);
 router.put('/:id/contributions', updateStudentContributions);
+router.put('/:id/status', updateProjectStatus);
 router.put('/:id', updateProjectTeam);
 router.delete('/:id', deleteProject);
 router.post('/:id/regenerate-code', regenerateAccessCode);
 router.post('/:id/revoke-code', revokeAccessCode);
 router.post('/:id/send-invite', sendProjectInvite);
+router.post('/:id/handover', executeProjectHandover);
 
 // GitHub Webhook & Telemetry Routes
 router.post('/:id/github/generate-webhook', generateGithubWebhook);

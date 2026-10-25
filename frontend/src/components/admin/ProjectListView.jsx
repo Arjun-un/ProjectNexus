@@ -10,7 +10,9 @@ import {
   Archive,
   Trash2,
   AlertTriangle,
-  Check
+  Check,
+  CheckCircle2,
+  GitFork
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────
@@ -281,6 +283,8 @@ export default function ProjectListView({
   getCategoryBadge,
   getStatusBadge,
   onDeleteProject,
+  onMarkCompleted,
+  onOpenHandover,
 }) {
   const [openMenuId, setOpenMenuId] = useState(null);
   const [deleteModal, setDeleteModal] = useState(null);
@@ -482,7 +486,7 @@ export default function ProjectListView({
           boxShadow: '0 2px 10px rgba(15,23,42,0.05)',
         }}>
           <div style={{ overflowX: 'auto', minHeight: filteredProjects.length <= 3 ? '320px' : 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '960px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1060px' }}>
               <thead>
                 <tr style={{
                   borderBottom: '1.5px solid #E2E8F0',
@@ -576,14 +580,90 @@ export default function ProjectListView({
                         style={{ padding: '15px 16px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle' }}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', justifyContent: 'flex-end' }}>
+                          {/* 1. Completed Button (Admin tick) */}
+                          {p.status === 'Completed' ? (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); onMarkCompleted && onMarkCompleted(p, e); }}
+                              title="Project Completed — Click to toggle status"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                padding: '5px 9px',
+                                fontSize: '11.5px', fontWeight: 700,
+                                color: '#047857', background: '#ECFDF5',
+                                border: '1.5px solid #6EE7B7',
+                                borderRadius: '7px', cursor: 'pointer',
+                                transition: 'all 0.15s ease', whiteSpace: 'nowrap',
+                              }}
+                            >
+                              <CheckCircle2 size={13} color="#059669" />
+                              <span>Completed</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); onMarkCompleted && onMarkCompleted(p, e); }}
+                              title="Tick as Completed (Admin Approval)"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                padding: '5px 9px',
+                                fontSize: '11.5px', fontWeight: 600,
+                                color: '#475569', background: '#FFFFFF',
+                                border: '1.5px solid #CBD5E1',
+                                borderRadius: '7px', cursor: 'pointer',
+                                transition: 'all 0.15s ease', whiteSpace: 'nowrap',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = '#10B981';
+                                e.currentTarget.style.color = '#059669';
+                                e.currentTarget.style.background = '#ECFDF5';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = '#CBD5E1';
+                                e.currentTarget.style.color = '#475569';
+                                e.currentTarget.style.background = '#FFFFFF';
+                              }}
+                            >
+                              <Check size={13} />
+                              <span>Mark Done</span>
+                            </button>
+                          )}
+
+                          {/* 2. Open to Handover Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onOpenHandover && onOpenHandover(p, e); }}
+                            title="Open in Handover Protocol Engine"
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '4px',
+                              padding: '5px 9px',
+                              fontSize: '11.5px', fontWeight: 700,
+                              color: '#7C3AED', background: '#F5F3FF',
+                              border: '1.5px solid #DDD6FE',
+                              borderRadius: '7px', cursor: 'pointer',
+                              transition: 'all 0.15s ease', whiteSpace: 'nowrap',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#EDE9FE';
+                              e.currentTarget.style.borderColor = '#8B5CF6';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = '#F5F3FF';
+                              e.currentTarget.style.borderColor = '#DDD6FE';
+                            }}
+                          >
+                            <GitFork size={12} color="#7C3AED" />
+                            <span>Handover</span>
+                          </button>
+
                           {/* View button */}
                           <button
                             className="pn-view-btn"
                             onClick={(e) => { e.stopPropagation(); onSelectProject(p.projectId); }}
                             style={{
                               display: 'inline-flex', alignItems: 'center', gap: '5px',
-                              padding: '5px 11px',
+                              padding: '5px 10px',
                               fontSize: '11.5px', fontWeight: 600,
                               color: '#2563EB', background: '#EFF6FF',
                               border: '1.5px solid #BFDBFE',
@@ -592,7 +672,7 @@ export default function ProjectListView({
                             }}
                           >
                             <Eye size={12} />
-                            View
+                            <span>View</span>
                           </button>
 
                           {/* Three-dot overflow menu */}
@@ -637,6 +717,16 @@ export default function ProjectListView({
                                   icon={copiedCode === p.teamAccessCode ? <Check size={13} color="#10B981" /> : <Copy size={13} />}
                                   label="Copy Project ID"
                                   onClick={() => { onCopyCode(p.teamAccessCode, { stopPropagation: () => {} }); setOpenMenuId(null); }}
+                                />
+                                <DropdownItem
+                                  icon={<CheckCircle2 size={13} color="#10B981" />}
+                                  label={p.status === 'Completed' ? "Mark as Active" : "Mark as Completed"}
+                                  onClick={(e) => { onMarkCompleted && onMarkCompleted(p, e); setOpenMenuId(null); }}
+                                />
+                                <DropdownItem
+                                  icon={<GitFork size={13} color="#7C3AED" />}
+                                  label="Open to Handover"
+                                  onClick={(e) => { onOpenHandover && onOpenHandover(p, e); setOpenMenuId(null); }}
                                 />
                                 <DropdownItem
                                   icon={<Mail size={13} />}
