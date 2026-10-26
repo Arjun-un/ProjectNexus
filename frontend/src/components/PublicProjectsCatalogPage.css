@@ -922,9 +922,17 @@
 }
 
 @keyframes pnPulse {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
+  0% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.6;
+  }
 }
 
 .pn-skeleton-line {
@@ -937,29 +945,37 @@
   .pn-catalog-navbar {
     padding: 10px 16px;
   }
+
   .pn-catalog-hero {
     padding: 28px 16px;
   }
+
   .pn-catalog-hero-title {
     font-size: 24px;
   }
+
   .pn-catalog-content {
     padding: 20px 16px 60px 16px;
   }
+
   .pn-catalog-card {
     padding: 18px 18px;
   }
+
   .pn-catalog-card-header {
     flex-direction: column;
     align-items: flex-start;
   }
+
   .pn-catalog-status-badge {
     align-self: flex-start;
   }
+
   .pn-catalog-card-footer {
     flex-direction: column;
     align-items: flex-start;
   }
+
   .pn-catalog-progress-group {
     width: 100%;
     max-width: none;
