@@ -6,24 +6,24 @@ import {
   CheckCircle2,
   AlertTriangle,
   FileText,
-  ArrowRight,
   ShieldCheck,
   FolderGit2,
-  GitBranch,
-  GitCommit,
   Sparkles,
-  Building2,
   Copy,
   Check,
   ExternalLink,
   RefreshCw,
   Sliders,
-  CheckCircle,
-  Clock
+  User,
+  Users,
+  Calendar,
+  Layers,
+  ArrowRight,
+  Info
 } from 'lucide-react';
 
 export default function HandoverDossierPage({
-  project,
+  project: initialProject,
   onBack,
   onLaunchContinuationWorkspace
 }) {
@@ -31,9 +31,50 @@ export default function HandoverDossierPage({
   const [copiedCode, setCopiedCode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Available projects open to handover from the backend database
+  const [availableProjects, setAvailableProjects] = useState([]);
+  const [isLoadingAvailable, setIsLoadingAvailable] = useState(true);
+  const [activeProject, setActiveProject] = useState(initialProject || null);
+
+  // Fetch all projects open to handover
+  useEffect(() => {
+    let isMounted = true;
+    const fetchOpenProjects = async () => {
+      try {
+        setIsLoadingAvailable(true);
+        const res = await fetch('http://localhost:5000/api/projects/handover/available');
+        if (res.ok) {
+          const json = await res.json();
+          if (isMounted && json.success && Array.isArray(json.data)) {
+            setAvailableProjects(json.data);
+            // If no project was specifically selected yet, or if initialProject is not set
+            if (!initialProject && json.data.length > 0) {
+              setActiveProject(json.data[0]);
+            } else if (initialProject) {
+              // Ensure activeProject has latest data from open projects list if present
+              const matched = json.data.find(p => p.projectId === initialProject.projectId || p._id === initialProject._id);
+              if (matched) {
+                setActiveProject(matched);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Backend fetch for open handovers:', err);
+      } finally {
+        if (isMounted) setIsLoadingAvailable(false);
+      }
+    };
+
+    fetchOpenProjects();
+    return () => { isMounted = false; };
+  }, [initialProject]);
+
+  const currentProject = activeProject || initialProject;
+
   // Simulation Form State
   const [transferReason, setTransferReason] = useState(
-    'Academic term conclusion & senior team internship migration'
+    currentProject?.handoverReason || 'Academic term conclusion & senior team internship migration'
   );
   const [newTeamName, setNewTeamName] = useState('Team Gamma (Continuation)');
   const [newLeadEmail, setNewLeadEmail] = useState('lead.gamma@college.edu');
@@ -51,13 +92,13 @@ export default function HandoverDossierPage({
   );
 
   const [handoverData, setHandoverData] = useState({
-    packetId: `HO-${project?.projectId || 'CSE-2025-041'}-v2.0`,
-    fromVersion: project?.currentVersionNumber || 1,
-    toVersion: (project?.currentVersionNumber || 1) + 1,
-    fromTeamName: project?.team?.name || 'Alpha Visionary Labs',
+    packetId: `HO-${currentProject?.projectId || 'CSE-2025-041'}-v2.0`,
+    fromVersion: currentProject?.currentVersionNumber || 1,
+    toVersion: (currentProject?.currentVersionNumber || 1) + 1,
+    fromTeamName: currentProject?.team?.name || 'Alpha Visionary Labs',
     toTeamName: 'Team Gamma (Continuation)',
-    progressAtHandover: project?.progress || 45,
-    reason: 'Academic term conclusion & senior team internship migration',
+    progressAtHandover: currentProject?.progress || 45,
+    reason: currentProject?.handoverReason || 'Academic term conclusion & senior team internship migration',
     completedModules: [
       'FaceNet embedding model (94.2% validation accuracy)',
       'Student profile photo enrollment pipeline',
@@ -74,34 +115,34 @@ export default function HandoverDossierPage({
     ],
     facultyNotes: 'Hardware kit available in CS Lab 3, Locker #4. Base embedding network verified. Do not retrain from scratch — focus directly on liveness filtering and Jetson edge deployment.',
     hardwareLocation: 'Embedded Systems Lab 3, Workstation #4',
-    githubUrl: project?.githubUrl || 'https://github.com/projectnexus/smart-attendance-system',
+    githubUrl: currentProject?.githubUrl || 'https://github.com/projectnexus/smart-attendance-system',
     pinnedCommitSha: '5fb748c',
     gitBranch: 'v1.0-handover-archive',
     newAccessCode: 'NEXUS-G789'
   });
 
-  // Re-synchronize dynamically when a new project is selected
+  // Re-synchronize dynamically when a project is selected
   useEffect(() => {
-    if (!project) return;
-    const currentVer = project.currentVersionNumber || 1;
+    if (!currentProject) return;
+    const currentVer = currentProject.currentVersionNumber || 1;
     const nextVer = currentVer + 1;
-    const pId = project.projectId || project._id || 'PROJ-001';
-    const fromTeam = project.team?.name || (project.title ? `${project.title} Team` : 'Initial Team');
-    const progressVal = project.progress !== undefined ? project.progress : 45;
+    const pId = currentProject.projectId || currentProject._id || 'PROJ-001';
+    const fromTeam = currentProject.team?.name || (currentProject.title ? `${currentProject.title} Team` : 'Outgoing Team');
+    const progressVal = currentProject.progress !== undefined ? currentProject.progress : 45;
 
     const defaultCompleted = [
-      project.techStack && project.techStack.length > 0
-        ? `Core stack pipeline implemented with ${project.techStack.slice(0, 3).join(', ')}`
+      currentProject.techStack && currentProject.techStack.length > 0
+        ? `Core stack pipeline implemented with ${currentProject.techStack.slice(0, 3).join(', ')}`
         : `Sprint 1 & 2 baseline specifications and architecture verified`,
-      project.category === 'IoT'
+      currentProject.category === 'IoT'
         ? `Sensor calibration and hardware schematic validation`
         : `User authentication, database schema, and REST API foundation`,
       `Milestone deliverables passed faculty review at ${progressVal}% progress`
     ];
 
     const defaultPending = [
-      project.techStack && project.techStack.length > 3
-        ? `Advanced service integration with ${project.techStack.slice(3).join(', ')}`
+      currentProject.techStack && currentProject.techStack.length > 3
+        ? `Advanced service integration with ${currentProject.techStack.slice(3).join(', ')}`
         : `Edge deployment and end-to-end production telemetry synchronization`,
       `Automated test coverage, edge load benchmarking and resilience checks`,
       `Final academic institutional presentation & documentation for department review`
@@ -112,18 +153,20 @@ export default function HandoverDossierPage({
       `Device reconnect error-handling under degraded network bandwidth`
     ];
 
-    const defaultNotes = project.facultyGuide
-      ? `Supervised by ${project.facultyGuide}. Inherit established baseline deliverables and consult departmental committee before altering core schemas.`
-      : `Hardware and lab access registered in ${project.department || 'Department'}. Retain existing commit history.`;
+    const defaultNotes = currentProject.facultyGuide
+      ? `Supervised by ${currentProject.facultyGuide}. Inherit established baseline deliverables and consult departmental committee before altering core schemas.`
+      : `Hardware and lab access registered in ${currentProject.department || 'Department'}. Retain existing commit history.`;
 
-    const repoUrl = project.githubUrl || project.githubIntegration?.repoUrl || `https://github.com/projectnexus/${pId.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-    const labLoc = project.labAssigned || (project.category === 'IoT' ? 'Embedded Systems Lab (Room 304)' : 'Department Cloud Computing Lab');
+    const repoUrl = currentProject.githubUrl || currentProject.githubIntegration?.repoUrl || `https://github.com/projectnexus/${pId.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+    const labLoc = currentProject.labAssigned || (currentProject.category === 'IoT' ? 'Embedded Systems Lab (Room 304)' : 'Department Cloud Computing Lab');
 
     const nextTeamDefault = `Team NextGen (v${nextVer}.0)`;
     const nextEmailDefault = `lead.${pId.toLowerCase().replace(/[^a-z0-9]/g, '')}@college.edu`;
     const generatedAccessCode = `NEXUS-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-    setTransferReason('Academic term conclusion & senior team internship migration');
+    const reasonText = currentProject.handoverReason || 'Academic term conclusion & senior team internship migration';
+
+    setTransferReason(reasonText);
     setNewTeamName(nextTeamDefault);
     setNewLeadEmail(nextEmailDefault);
     setCompletedModules(defaultCompleted.join('\n'));
@@ -138,18 +181,18 @@ export default function HandoverDossierPage({
       fromTeamName: fromTeam,
       toTeamName: nextTeamDefault,
       progressAtHandover: progressVal,
-      reason: 'Academic term conclusion & senior team internship migration',
+      reason: reasonText,
       completedModules: defaultCompleted,
       pendingModules: defaultPending,
       knownIssues: defaultIssues,
       facultyNotes: defaultNotes,
       hardwareLocation: labLoc,
       githubUrl: repoUrl,
-      pinnedCommitSha: project.githubIntegration?.lastCommitSha ? project.githubIntegration.lastCommitSha.slice(0, 7) : '5fb748c',
+      pinnedCommitSha: currentProject.githubIntegration?.lastCommitSha ? currentProject.githubIntegration.lastCommitSha.slice(0, 7) : '5fb748c',
       gitBranch: `v${currentVer}.0-handover-archive`,
       newAccessCode: generatedAccessCode
     });
-  }, [project]);
+  }, [currentProject]);
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(handoverData.newAccessCode);
@@ -162,7 +205,7 @@ export default function HandoverDossierPage({
     setIsSubmitting(true);
 
     try {
-      const pid = project?.projectId || 'CSE-2025-642';
+      const pid = currentProject?.projectId || 'CSE-2025-642';
       const res = await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(pid)}/handover`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -224,55 +267,195 @@ export default function HandoverDossierPage({
             <span>Back to Portal Gateway</span>
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <span className="pn-dossier-protocol-badge">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Versioned Continuity Engine</span>
             </span>
 
-            <div style={{
-              display: 'flex',
-              backgroundColor: 'rgba(255, 255, 255, 0.08)',
-              padding: '3px',
-              borderRadius: '10px',
-              border: '1px solid rgba(255, 255, 255, 0.12)'
-            }}>
+            <div className="pn-dossier-tab-group">
               <button
                 type="button"
                 onClick={() => setActiveTab('dossier')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '7px',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  border: 'none',
-                  cursor: 'pointer',
-                  backgroundColor: activeTab === 'dossier' ? '#7C3AED' : 'transparent',
-                  color: '#FFFFFF',
-                  transition: 'background 0.15s ease'
-                }}
+                className={`pn-dossier-tab-btn ${activeTab === 'dossier' ? 'active' : ''}`}
               >
                 Official Handover Dossier
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('simulator')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '7px',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  border: 'none',
-                  cursor: 'pointer',
-                  backgroundColor: activeTab === 'simulator' ? '#7C3AED' : 'transparent',
-                  color: '#FFFFFF',
-                  transition: 'background 0.15s ease'
-                }}
+                className={`pn-dossier-tab-btn ${activeTab === 'simulator' ? 'active' : ''}`}
               >
                 Configure Parameters
               </button>
             </div>
           </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════ */}
+        {/* AVAILABLE HANDOVER PROJECTS SELECTOR SECTION           */}
+        {/* ══════════════════════════════════════════════════════ */}
+        <div className="pn-handover-available-section">
+          <div className="pn-handover-available-header">
+            <div>
+              <div className="pn-handover-available-title">
+                <GitFork className="w-5 h-5 text-indigo-600" />
+                <h2>Projects Open for Continuity & Handover</h2>
+                <span className="pn-handover-count-pill">
+                  {availableProjects.length} Available
+                </span>
+              </div>
+              <p className="pn-handover-available-desc">
+                Academic engineering projects flagged by administrators for succession transfer, technical debt inheritance, and versioned continuity.
+              </p>
+            </div>
+
+            {isLoadingAvailable && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748B' }}>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                <span>Syncing live handover records...</span>
+              </div>
+            )}
+          </div>
+
+          {availableProjects.length > 0 ? (
+            <div className="pn-handover-available-grid">
+              {availableProjects.map((proj) => {
+                const isSelected = (currentProject?.projectId === proj.projectId) || (currentProject?._id === proj._id);
+                const progressPct = proj.progress !== undefined ? proj.progress : 45;
+                const outgoingTeamName = proj.team?.name || 'Previous Student Team';
+                const guideName = proj.facultyGuide || 'Department Committee';
+
+                return (
+                  <div
+                    key={proj.projectId || proj._id}
+                    onClick={() => setActiveProject(proj)}
+                    className={`pn-handover-project-card ${isSelected ? 'active' : ''}`}
+                  >
+                    {/* Top Row: ID, Category & Handover Tag */}
+                    <div className="pn-handover-card-top">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className="pn-handover-card-id">{proj.projectId}</span>
+                        <span style={{
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          backgroundColor: proj.category === 'IoT' ? '#FEF3C7' : proj.category === 'Hardware' ? '#FEE2E2' : '#EFF6FF',
+                          color: proj.category === 'IoT' ? '#B45309' : proj.category === 'Hardware' ? '#B91C1C' : '#1D4ED8',
+                          border: `1px solid ${proj.category === 'IoT' ? '#FDE68A' : proj.category === 'Hardware' ? '#FECACA' : '#BFDBFE'}`
+                        }}>
+                          {proj.category || 'Software'}
+                        </span>
+                      </div>
+
+                      <span className="pn-handover-card-tag">
+                        <GitFork className="w-3 h-3" />
+                        Open to Handover
+                      </span>
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="pn-handover-card-title">
+                      {proj.title}
+                    </h3>
+
+                    {/* Meta List: Guide, Outgoing Team, Dept */}
+                    <div className="pn-handover-card-meta-list">
+                      <div className="pn-handover-card-meta-item">
+                        <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>Outgoing: <strong>{outgoingTeamName}</strong></span>
+                      </div>
+
+                      <div className="pn-handover-card-meta-item">
+                        <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>Guide: <strong>{guideName}</strong></span>
+                      </div>
+
+                      <div className="pn-handover-card-meta-item">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>{proj.department || 'Computer Science'} • {proj.academicYear || '2025-2026'}</span>
+                      </div>
+                    </div>
+
+                    {/* Handover / Discontinuation Reason */}
+                    {proj.handoverReason && (
+                      <div className="pn-handover-card-reason-box">
+                        "{proj.handoverReason}"
+                      </div>
+                    )}
+
+                    {/* Progress Bar */}
+                    <div className="pn-handover-card-progress">
+                      <div className="pn-handover-progress-label">
+                        <span>Deliverables Baseline</span>
+                        <span style={{ color: '#2563EB', fontWeight: 800 }}>{progressPct}% Preserved</span>
+                      </div>
+                      <div className="pn-handover-progress-track">
+                        <div
+                          className="pn-handover-progress-fill"
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Tech Stack Chips */}
+                    {proj.techStack && proj.techStack.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
+                        {proj.techStack.slice(0, 4).map((tech, i) => (
+                          <span
+                            key={i}
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              color: '#475569',
+                              backgroundColor: '#F1F5F9',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              border: '1px solid #E2E8F0'
+                            }}
+                          >
+                            {tech}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Footer Selection Indicator */}
+                    <div className={`pn-handover-card-footer ${isSelected ? 'active' : 'inactive'}`}>
+                      <span>{isSelected ? '✓ Currently Inspecting Dossier' : 'Click to Inspect Dossier'}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="pn-handover-empty-banner">
+              <div className="pn-handover-empty-icon">
+                <GitFork className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="pn-handover-empty-title">
+                  No Projects Flagged for Handover Yet
+                </h3>
+                <p className="pn-handover-empty-desc">
+                  Institutional Administrators can flag active or discontinued student projects as <strong>"Open to Handover"</strong> from the Admin Project Directory. Flagged projects will automatically appear here for incoming continuation teams to inspect and inherit.
+                </p>
+              </div>
+
+              {onBack && (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="pn-dossier-back-btn"
+                  style={{ marginTop: '4px' }}
+                >
+                  Return to Dashboard
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {activeTab === 'dossier' ? (
@@ -284,22 +467,23 @@ export default function HandoverDossierPage({
             {/* Header Row */}
             <div className="pn-dossier-header-row">
               <div className="pn-dossier-title-group">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <ShieldCheck className="w-5 h-5 text-purple-400" />
-                  <span style={{ fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#C4B5FD' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <ShieldCheck className="w-4 h-4 text-blue-600" />
+                  <span style={{ fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#2563EB' }}>
                     Institutional Continuity & Handover Protocol
                   </span>
                 </div>
-                <h1>{project?.title || 'AI Based Smart Attendance Management'}</h1>
+                <h1>{currentProject?.title || 'Smart Attendance System using Edge Vision'}</h1>
                 <p>
                   Formal version transition certificate verifying deliverable preservation, technical debt inheritance, and repository state continuity.
                 </p>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+              <div className="pn-dossier-meta-column">
                 <span className="pn-dossier-packet-id">{handoverData.packetId}</span>
-                <span style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'monospace' }}>
-                  Status: Transition Verified
+                <span className="pn-dossier-status-pill">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Transition Verified</span>
                 </span>
               </div>
             </div>
@@ -308,7 +492,7 @@ export default function HandoverDossierPage({
             <div className="pn-dossier-step-ribbon">
               {/* Outgoing Team */}
               <div className="pn-ribbon-team-box">
-                <span className="pn-ribbon-team-tag" style={{ color: '#F87171' }}>
+                <span className="pn-ribbon-team-tag outgoing">
                   Outgoing Version v{handoverData.fromVersion}.0 (Archived)
                 </span>
                 <span className="pn-ribbon-team-name">{handoverData.fromTeamName}</span>
@@ -320,20 +504,20 @@ export default function HandoverDossierPage({
               {/* Handover Engine Junction */}
               <div className="pn-ribbon-arrow-box">
                 <span className="pn-ribbon-engine-pill">Zero Knowledge Loss</span>
-                <GitFork className="w-6 h-6 stroke-[2.2]" />
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#DDD6FE' }}>
+                <GitFork className="w-5 h-5 stroke-[2.2]" />
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#4338CA' }}>
                   Handover Engine
                 </span>
               </div>
 
               {/* Incoming Continuation Team */}
               <div className="pn-ribbon-team-box" style={{ textAlign: 'right' }}>
-                <span className="pn-ribbon-team-tag" style={{ color: '#34D399' }}>
+                <span className="pn-ribbon-team-tag incoming">
                   Continuation Version v{handoverData.toVersion}.0 (Active)
                 </span>
                 <span className="pn-ribbon-team-name">{handoverData.toTeamName}</span>
                 <span className="pn-ribbon-team-meta">
-                  Resuming from <strong>{handoverData.progressAtHandover}%</strong> baseline • Access code: <code style={{ color: '#A78BFA' }}>{handoverData.newAccessCode}</code>
+                  Resuming from <strong>{handoverData.progressAtHandover}%</strong> baseline • Access code: <code style={{ color: '#2563EB', fontWeight: 700 }}>{handoverData.newAccessCode}</code>
                 </span>
               </div>
             </div>
@@ -344,18 +528,18 @@ export default function HandoverDossierPage({
               {/* 1. Verified Working Deliverables */}
               <div className="pn-quad-card deliverables">
                 <div className="pn-quad-header">
-                  <h3 className="pn-quad-title" style={{ color: '#34D399' }}>
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Verified Deliverables (Preserved v1.0)</span>
+                  <h3 className="pn-quad-title deliverables-title">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Verified Deliverables (Preserved v{handoverData.fromVersion}.0)</span>
                   </h3>
-                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#34D399', backgroundColor: 'rgba(16, 185, 129, 0.2)', padding: '2px 8px', borderRadius: '4px' }}>
+                  <span className="pn-quad-badge deliverables-badge">
                     Locked
                   </span>
                 </div>
                 <div className="pn-quad-list">
                   {handoverData.completedModules.map((item, idx) => (
                     <div key={idx} className="pn-quad-item completed">
-                      <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                       <span>{item}</span>
                     </div>
                   ))}
@@ -365,18 +549,18 @@ export default function HandoverDossierPage({
               {/* 2. Inherited Technical Debt & Open Blockers */}
               <div className="pn-quad-card debt">
                 <div className="pn-quad-header">
-                  <h3 className="pn-quad-title" style={{ color: '#FBBF24' }}>
-                    <AlertTriangle className="w-4 h-4" />
-                    <span>Inherited Technical Debt (Backlog for v2.0)</span>
+                  <h3 className="pn-quad-title debt-title">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    <span>Inherited Technical Debt (Backlog for v{handoverData.toVersion}.0)</span>
                   </h3>
-                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#FBBF24', backgroundColor: 'rgba(245, 158, 11, 0.2)', padding: '2px 8px', borderRadius: '4px' }}>
+                  <span className="pn-quad-badge debt-badge">
                     Pending
                   </span>
                 </div>
                 <div className="pn-quad-list">
                   {handoverData.pendingModules.map((item, idx) => (
                     <div key={idx} className="pn-quad-item pending">
-                      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <span>{item}</span>
                     </div>
                   ))}
@@ -386,11 +570,11 @@ export default function HandoverDossierPage({
               {/* 3. Codebase State & Hardware Location */}
               <div className="pn-quad-card" style={{ gridColumn: 'span 2' }}>
                 <div className="pn-quad-header">
-                  <h3 className="pn-quad-title" style={{ color: '#C084FC' }}>
-                    <FolderGit2 className="w-4 h-4" />
+                  <h3 className="pn-quad-title" style={{ color: '#4F46E5' }}>
+                    <FolderGit2 className="w-4 h-4 text-indigo-600" />
                     <span>Repository Codebase Snapshot & Physical Lab Allocation</span>
                   </h3>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#C084FC', fontFamily: 'monospace' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569', fontFamily: 'monospace', backgroundColor: '#F1F5F9', padding: '2px 8px', borderRadius: '4px', border: '1px solid #E2E8F0' }}>
                     SHA: {handoverData.pinnedCommitSha}
                   </span>
                 </div>
@@ -398,9 +582,20 @@ export default function HandoverDossierPage({
                 <div className="pn-vault-specs-grid">
                   <div className="pn-spec-box">
                     <span className="pn-spec-label">GitHub Repository URL</span>
-                    <span className="pn-spec-val" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {handoverData.githubUrl}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <span className="pn-spec-val" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {handoverData.githubUrl}
+                      </span>
+                      <a
+                        href={handoverData.githubUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Open Repository"
+                        style={{ color: '#2563EB', display: 'flex', alignItems: 'center' }}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
                   </div>
                   <div className="pn-spec-box">
                     <span className="pn-spec-label">Frozen Archive Branch</span>
@@ -413,16 +608,16 @@ export default function HandoverDossierPage({
                   <div className="pn-spec-box">
                     <span className="pn-spec-label">New Team Access Code</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="pn-spec-val" style={{ color: '#A78BFA', fontSize: '14px' }}>
+                      <span className="pn-spec-val" style={{ color: '#2563EB', fontSize: '14px', fontWeight: 700 }}>
                         {handoverData.newAccessCode}
                       </span>
                       <button
                         type="button"
                         onClick={handleCopyCode}
-                        style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}
-                        title="Copy Code"
+                        style={{ background: 'transparent', border: 'none', color: '#64748B', cursor: 'pointer', padding: 2 }}
+                        title="Copy Access Code"
                       >
-                        {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> : <Copy className="w-3.5 h-3.5" />}
                       </button>
                     </div>
                   </div>
@@ -438,10 +633,10 @@ export default function HandoverDossierPage({
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <strong style={{ fontSize: '12.5px', color: '#C7D2FE', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Faculty Guide Handover Directive • {project?.facultyGuide || 'Prof. Vikram Malhotra'}
+                  <strong style={{ fontSize: '12px', color: '#1E40AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Faculty Guide Handover Directive • {currentProject?.facultyGuide || 'Prof. Vikram Malhotra'}
                   </strong>
-                  <span style={{ fontSize: '11px', color: '#A5B4FC', fontFamily: 'monospace' }}>
+                  <span style={{ fontSize: '11px', color: '#2563EB', fontWeight: 600, backgroundColor: '#DBEAFE', padding: '1px 8px', borderRadius: '4px' }}>
                     Verified Sign-off
                   </span>
                 </div>
@@ -453,8 +648,8 @@ export default function HandoverDossierPage({
 
             {/* Launch Workspace Action Bar */}
             <div className="pn-dossier-actions">
-              <div style={{ fontSize: '12.5px', color: '#94A3B8' }}>
-                Ready to resume development as <strong style={{ color: '#FFFFFF' }}>{handoverData.toTeamName}</strong>?
+              <div style={{ fontSize: '13px', color: '#64748B' }}>
+                Ready to resume development as <strong style={{ color: '#0F172A' }}>{handoverData.toTeamName}</strong>?
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -463,8 +658,8 @@ export default function HandoverDossierPage({
                   onClick={() => onLaunchContinuationWorkspace && onLaunchContinuationWorkspace(handoverData)}
                   className="pn-btn-launch-workspace"
                 >
-                  <Sparkles className="w-4 h-4 text-purple-200" />
-                  <span>Open v2.0 Continuation Workspace →</span>
+                  <Sparkles className="w-4 h-4 text-blue-100" />
+                  <span>Open v{handoverData.toVersion}.0 Continuation Workspace →</span>
                 </button>
               </div>
             </div>
@@ -477,23 +672,23 @@ export default function HandoverDossierPage({
           <div className="pn-dossier-cert-card">
             <div className="pn-dossier-header-row">
               <div className="pn-dossier-title-group">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <Sliders className="w-5 h-5 text-purple-400" />
-                  <span style={{ fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#C4B5FD' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <Sliders className="w-4 h-4 text-blue-600" />
+                  <span style={{ fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#2563EB' }}>
                     Simulation Parameter Configurator
                   </span>
                 </div>
                 <h1>Custom Continuity Pipeline Setup</h1>
                 <p>
-                  Customize deliverables, unresolved technical debt, and continuation team credentials before generating the Handover Packet.
+                  Customize deliverables, unresolved technical debt, and continuation team credentials before generating the Handover Packet for <strong>{currentProject?.title}</strong>.
                 </p>
               </div>
             </div>
 
             <form onSubmit={handleRunSimulation} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#C4B5FD', marginBottom: '6px' }}>
+                <div className="pn-config-form-group">
+                  <label className="pn-config-label">
                     Discontinuation Reason
                   </label>
                   <input
@@ -501,21 +696,12 @@ export default function HandoverDossierPage({
                     value={transferReason}
                     onChange={(e) => setTransferReason(e.target.value)}
                     required
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: 'rgba(2, 6, 23, 0.6)',
-                      border: '1px solid rgba(255, 255, 255, 0.15)',
-                      borderRadius: '10px',
-                      color: '#FFFFFF',
-                      fontSize: '13px',
-                      boxSizing: 'border-box'
-                    }}
+                    className="pn-config-input"
                   />
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#C4B5FD', marginBottom: '6px' }}>
+                <div className="pn-config-form-group">
+                  <label className="pn-config-label">
                     Incoming Continuation Team Name
                   </label>
                   <input
@@ -523,23 +709,14 @@ export default function HandoverDossierPage({
                     value={newTeamName}
                     onChange={(e) => setNewTeamName(e.target.value)}
                     required
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: 'rgba(2, 6, 23, 0.6)',
-                      border: '1px solid rgba(255, 255, 255, 0.15)',
-                      borderRadius: '10px',
-                      color: '#FFFFFF',
-                      fontSize: '13px',
-                      boxSizing: 'border-box'
-                    }}
+                    className="pn-config-input"
                   />
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#34D399', marginBottom: '6px' }}>
+                <div className="pn-config-form-group">
+                  <label className="pn-config-label" style={{ color: '#065F46' }}>
                     Completed Working Modules (1 per line)
                   </label>
                   <textarea
@@ -547,22 +724,13 @@ export default function HandoverDossierPage({
                     value={completedModules}
                     onChange={(e) => setCompletedModules(e.target.value)}
                     required
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: 'rgba(2, 6, 23, 0.6)',
-                      border: '1px solid rgba(16, 185, 129, 0.3)',
-                      borderRadius: '10px',
-                      color: '#D1FAE5',
-                      fontSize: '12px',
-                      fontFamily: 'monospace',
-                      boxSizing: 'border-box'
-                    }}
+                    className="pn-config-textarea"
+                    style={{ borderColor: '#BBF7D0', backgroundColor: '#F0FDF4' }}
                   />
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#FBBF24', marginBottom: '6px' }}>
+                <div className="pn-config-form-group">
+                  <label className="pn-config-label" style={{ color: '#92400E' }}>
                     Pending Technical Debt & Blockers (1 per line)
                   </label>
                   <textarea
@@ -570,39 +738,21 @@ export default function HandoverDossierPage({
                     value={pendingModules}
                     onChange={(e) => setPendingModules(e.target.value)}
                     required
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: 'rgba(2, 6, 23, 0.6)',
-                      border: '1px solid rgba(245, 158, 11, 0.3)',
-                      borderRadius: '10px',
-                      color: '#FEF3C7',
-                      fontSize: '12px',
-                      fontFamily: 'monospace',
-                      boxSizing: 'border-box'
-                    }}
+                    className="pn-config-textarea"
+                    style={{ borderColor: '#FDE68A', backgroundColor: '#FFFBEB' }}
                   />
                 </div>
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#C4B5FD', marginBottom: '6px' }}>
+              <div className="pn-config-form-group">
+                <label className="pn-config-label">
                   Faculty Guide Advisory Directives
                 </label>
                 <textarea
                   rows={2}
                   value={facultyNotes}
                   onChange={(e) => setFacultyNotes(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    backgroundColor: 'rgba(2, 6, 23, 0.6)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    borderRadius: '10px',
-                    color: '#FFFFFF',
-                    fontSize: '12.5px',
-                    boxSizing: 'border-box'
-                  }}
+                  className="pn-config-textarea"
                 />
               </div>
 

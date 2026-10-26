@@ -142,6 +142,7 @@ exports.getProjects = async (req, res) => {
       status,
       department,
       health,
+      academicYear,
       search,
       page = 1,
       limit = 10,
@@ -167,6 +168,10 @@ exports.getProjects = async (req, res) => {
       query.health = health;
     }
 
+    if (academicYear && academicYear !== 'All') {
+      query.academicYear = academicYear;
+    }
+
     if (search && search.trim() !== '') {
       const searchRegex = new RegExp(search.trim(), 'i');
       query.$or = [
@@ -175,7 +180,9 @@ exports.getProjects = async (req, res) => {
         { department: searchRegex },
         { facultyGuide: searchRegex },
         { teamAccessCode: searchRegex },
-        { 'team.name': searchRegex }
+        { 'team.name': searchRegex },
+        { techStack: searchRegex },
+        { description: searchRegex }
       ];
     }
 
@@ -873,14 +880,43 @@ exports.updateProjectTeam = async (req, res) => {
       }));
     }
 
+    // Automatically mark access code as claimed if team leader or members are assigned
+    if ((project.team?.leader && project.team.leader.name) || (project.team?.members && project.team.members.length > 0) || project.team?.name) {
+      project.isAccessCodeClaimed = true;
+      if (project.accessCodeStatus !== 'revoked') {
+        project.accessCodeStatus = 'claimed';
+      }
+    }
+
     // Update studentSummary & currentStatusNote if provided
-    const { studentSummary, currentStatusNote } = req.body;
+    const { studentSummary, currentStatusNote, statusMessage, updatedBy } = req.body;
     if (studentSummary !== undefined) {
       project.studentSummary = studentSummary.trim();
       project.summaryLastUpdatedAt = new Date();
     }
-    if (currentStatusNote !== undefined) {
-      project.currentStatusNote = currentStatusNote.trim();
+    const newStatusNote = currentStatusNote !== undefined ? currentStatusNote : statusMessage;
+    if (newStatusNote !== undefined) {
+      const cleanNote = newStatusNote.trim();
+      project.currentStatusNote = cleanNote;
+      const author = (updatedBy || project.team?.leader?.name || project.team?.lead?.name || 'Team Lead').trim();
+      project.teamStatusUpdate = {
+        message: cleanNote,
+        updatedBy: author,
+        updatedAt: new Date()
+      };
+      if (!Array.isArray(project.teamStatusHistory)) {
+        project.teamStatusHistory = [];
+      }
+      if (cleanNote) {
+        project.teamStatusHistory.unshift({
+          message: cleanNote,
+          updatedBy: author,
+          updatedAt: new Date()
+        });
+        if (project.teamStatusHistory.length > 30) {
+          project.teamStatusHistory = project.teamStatusHistory.slice(0, 30);
+        }
+      }
     }
 
     // Update githubUrl if provided
@@ -1092,6 +1128,14 @@ exports.updateStudentContributions = async (req, res) => {
       });
     }
 
+    // Automatically mark access code as claimed if team details exist
+    if ((project.team?.leader && project.team.leader.name) || (project.team?.members && project.team.members.length > 0) || project.team?.name) {
+      project.isAccessCodeClaimed = true;
+      if (project.accessCodeStatus !== 'revoked') {
+        project.accessCodeStatus = 'claimed';
+      }
+    }
+
     // 4. Upsert/Update TeamDB for synchronized roster & contributions
     await TeamDB.findOneAndUpdate(
       { projectId: project.projectId },
@@ -1294,14 +1338,38 @@ exports.getGithubEvents = async (req, res) => {
 
     const events = await RepositoryEvent.find({ projectId: project._id })
       .sort({ receivedAt: -1 })
-      .limit(25)
+      .limit(50)
       .populate('linkedTaskId', 'taskId title status')
       .lean();
 
+    const pushCount = events.filter(e => e.eventType === 'push').length;
+    const prCount = events.filter(e => e.eventType === 'pull_request').length;
+
+    const normalizedEvents = events.map(e => ({
+      ...e,
+      message: e.message || 'Code pushed to repository',
+      commitMessage: e.message || 'Code pushed to repository',
+      authorName: e.author?.name || 'Contributor',
+      authorUsername: e.author?.githubUsername || '',
+      branch: e.rawPayloadSummary?.branch || 'main',
+      filesAddedCount: typeof e.filesChanged?.added === 'number' ? e.filesChanged.added : 0,
+      filesModifiedCount: typeof e.filesChanged?.modified === 'number' ? e.filesChanged.modified : 1,
+      filesRemovedCount: typeof e.filesChanged?.removed === 'number' ? e.filesChanged.removed : 0
+    }));
+
     res.status(200).json({
       success: true,
-      count: events.length,
-      data: events
+      count: normalizedEvents.length,
+      data: normalizedEvents,
+      summary: {
+        isConnected: Boolean(project.githubIntegration?.isConnected || events.length > 0),
+        lastEventAt: project.githubIntegration?.lastEventAt || (events[0] ? events[0].receivedAt : null),
+        lastCommitSha: project.githubIntegration?.lastCommitSha || (events[0] ? events[0].commitSha : ''),
+        totalCommits: Math.max(project.githubIntegration?.totalCommits || 0, pushCount),
+        totalPullRequests: Math.max(project.githubIntegration?.totalPullRequests || 0, prCount),
+        contributors: project.githubIntegration?.contributors || [],
+        repoUrl: project.githubUrl || project.githubIntegration?.repoUrl || ''
+      }
     });
   } catch (error) {
     console.error('Error fetching repository events:', error);
@@ -1556,6 +1624,189 @@ exports.executeProjectHandover = async (req, res) => {
     });
   }
 };
+
+/**
+ * @route   PUT /api/projects/:id/toggle-handover
+ * @desc    Toggle or set project Open to Handover status
+ * @access  Public / Admin
+ */
+exports.toggleProjectHandoverStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isOpenToHandover, handoverReason } = req.body;
+
+    const project = await findProjectByIdOrCustomId(id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    const previousStatus = Boolean(project.isOpenToHandover);
+    project.isOpenToHandover = isOpenToHandover !== undefined ? Boolean(isOpenToHandover) : !previousStatus;
+
+    if (project.isOpenToHandover) {
+      project.handoverOpenedAt = new Date();
+      if (handoverReason) project.handoverReason = handoverReason.trim();
+
+      project.timeline.unshift({
+        title: 'Project Flagged Open for Handover',
+        description: `Institutional Administrator marked this project open for continuity handover.${project.handoverReason ? ` Reason: ${project.handoverReason}` : ''}`,
+        timestamp: new Date(),
+        type: 'handover'
+      });
+    } else {
+      project.handoverOpenedAt = null;
+      project.timeline.unshift({
+        title: 'Handover Status Closed',
+        description: 'Institutional Administrator removed this project from the open handover queue.',
+        timestamp: new Date(),
+        type: 'status_change'
+      });
+    }
+
+    await project.save();
+
+    res.status(200).json({
+      success: true,
+      message: project.isOpenToHandover
+        ? `Project ${project.projectId} is now OPEN for continuity handover`
+        : `Project ${project.projectId} handover status closed`,
+      data: project
+    });
+  } catch (error) {
+    console.error('Error toggling handover status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update handover status',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @route   GET /api/projects/handover/available
+ * @desc    Get all projects flagged as Open to Handover
+ * @access  Public
+ */
+exports.getOpenHandoverProjects = async (req, res) => {
+  try {
+    const projects = await Project.find({
+      $or: [
+        { isOpenToHandover: true },
+        { status: 'Discontinued' }
+      ]
+    }).sort({ handoverOpenedAt: -1, updatedAt: -1 }).lean();
+
+    res.status(200).json({
+      success: true,
+      count: projects.length,
+      data: projects
+    });
+  } catch (error) {
+    console.error('Error fetching open handover projects:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve open handover projects',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @route   POST /api/projects/:id/status-message
+ * @desc    Post a live status update message from the student team
+ * @access  Public (Student Team Workspace)
+ */
+exports.postTeamStatusUpdate = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message, statusMessage, currentStatusNote, updatedBy } = req.body;
+    const rawText = message || statusMessage || currentStatusNote || '';
+    const cleanMessage = String(rawText).trim();
+
+    if (!cleanMessage) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status update message cannot be empty'
+      });
+    }
+
+    const project = await findProjectByIdOrCustomId(id);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: `Project not found with identifier: ${id}`
+      });
+    }
+
+    const author = (updatedBy || project.team?.leader?.name || project.team?.lead?.name || 'Team Member').trim();
+    const now = new Date();
+
+    project.currentStatusNote = cleanMessage;
+    project.summaryLastUpdatedAt = now;
+    project.lastActivityDate = now;
+
+    project.teamStatusUpdate = {
+      message: cleanMessage,
+      updatedBy: author,
+      updatedAt: now
+    };
+
+    if (!Array.isArray(project.teamStatusHistory)) {
+      project.teamStatusHistory = [];
+    }
+    project.teamStatusHistory.unshift({
+      message: cleanMessage,
+      updatedBy: author,
+      updatedAt: now
+    });
+    if (project.teamStatusHistory.length > 30) {
+      project.teamStatusHistory = project.teamStatusHistory.slice(0, 30);
+    }
+
+    if (!Array.isArray(project.timeline)) {
+      project.timeline = [];
+    }
+    project.timeline.unshift({
+      title: 'Team Status Updated',
+      description: `"${cleanMessage}" — posted by ${author}`,
+      timestamp: now,
+      type: 'status_change'
+    });
+
+    await project.save();
+
+    try {
+      await TeamDB.findOneAndUpdate(
+        { projectId: project.projectId },
+        {
+          currentStatusNote: cleanMessage,
+          teamStatusUpdate: project.teamStatusUpdate,
+          lastUpdated: now
+        }
+      );
+    } catch {
+      // Non-fatal
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Status update recorded successfully',
+      data: {
+        currentStatusNote: project.currentStatusNote,
+        teamStatusUpdate: project.teamStatusUpdate,
+        teamStatusHistory: project.teamStatusHistory
+      }
+    });
+  } catch (error) {
+    console.error('Error posting team status update:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to record team status update',
+      error: error.message
+    });
+  }
+};
+
 
 
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './ProjectDetailView.css';
 import {
   ArrowLeft,
@@ -11,7 +11,6 @@ import {
   Copy,
   Check,
   RefreshCw,
-  Slash,
   AlertCircle,
   Send,
   Sparkles,
@@ -21,13 +20,12 @@ import {
   Trash2,
   ExternalLink,
   FolderGit2,
-  GitBranch,
   GitCommit,
   FileText,
   Activity,
   Layers,
-  HelpCircle,
   GitFork,
+  MessageSquare,
   X
 } from 'lucide-react';
 
@@ -94,6 +92,7 @@ export default function ProjectDetailView({
   onRevokeCode,
   onDeleteProject,
   onMarkCompleted,
+  onToggleHandover,
   onOpenHandover,
   getCategoryBadge,
   getStatusBadge,
@@ -103,12 +102,76 @@ export default function ProjectDetailView({
   const [copiedChip, setCopiedChip] = useState('');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [showRegenConfirm, setShowRegenConfirm] = useState(false);
-  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
+
+  // Git Webhook Telemetry Stream States
+  const [gitEvents, setGitEvents] = useState([]);
+  const [gitSummary, setGitSummary] = useState(null);
+  const [isLoadingGitEvents, setIsLoadingGitEvents] = useState(false);
+  const [isSimulatingGit, setIsSimulatingGit] = useState(false);
+  const [gitSimFeedback, setGitSimFeedback] = useState('');
+  const [copiedCommitSha, setCopiedCommitSha] = useState('');
+
+  const fetchGitEvents = async () => {
+    if (!project?.projectId && !project?._id) return;
+    setIsLoadingGitEvents(true);
+    try {
+      const projId = project.projectId || project._id;
+      const res = await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(projId)}/github/events`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setGitEvents(data.data || []);
+        setGitSummary(data.summary || null);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch git events:', err.message);
+    } finally {
+      setIsLoadingGitEvents(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGitEvents();
+  }, [project?.projectId, project?._id]);
+
+  const handleSimulateGitPush = async () => {
+    setIsSimulatingGit(true);
+    setGitSimFeedback('');
+    try {
+      const projId = project.projectId || project._id;
+      const res = await fetch(`http://localhost:5000/api/webhooks/simulate/${encodeURIComponent(projId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `feat: verified repository telemetry handshake [${projId}]`,
+          authorName: project.team?.leader?.name || 'Lead Contributor'
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setGitSimFeedback('Test commit injected & traced by webhook!');
+        await fetchGitEvents();
+        setTimeout(() => setGitSimFeedback(''), 3500);
+      } else {
+        setGitSimFeedback(data.message || 'Simulation error');
+        setTimeout(() => setGitSimFeedback(''), 3500);
+      }
+    } catch {
+      setGitSimFeedback('Failed to reach webhook simulation server');
+      setTimeout(() => setGitSimFeedback(''), 3500);
+    } finally {
+      setIsSimulatingGit(false);
+    }
+  };
 
   if (!project) return null;
 
   const deadlineInfo = getDeadlineInfo(project.deadline);
+  const isTeamRegistered = Boolean(
+    project.isAccessCodeClaimed ||
+    project.team?.name ||
+    project.team?.leader?.name ||
+    (project.team?.members && project.team.members.length > 0)
+  );
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(project.teamAccessCode);
@@ -143,6 +206,23 @@ export default function ProjectDetailView({
           <span className="pn-year-pill">
             Academic Year {project.academicYear || '2025-2026'}
           </span>
+          {project.isOpenToHandover && (
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              fontSize: '11.5px',
+              fontWeight: 700,
+              color: '#4338CA',
+              backgroundColor: '#EEF2FF',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              border: '1px solid #C7D2FE'
+            }}>
+              <GitFork size={12} color="#4338CA" />
+              <span>Open for Handover</span>
+            </span>
+          )}
           {getCategoryBadge && getCategoryBadge(project.category)}
           {getStatusBadge && getStatusBadge(project.status)}
         </div>
@@ -192,7 +272,34 @@ export default function ProjectDetailView({
               <span>{project.status === 'Completed' ? 'Completed' : 'Mark Completed'}</span>
             </button>
 
-            {/* Open to Handover Button */}
+            {/* Toggle Mark Open to Handover Button */}
+            <button
+              type="button"
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (onToggleHandover) onToggleHandover(project.projectId);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: '9px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                backgroundColor: project.isOpenToHandover ? '#EEF2FF' : '#FFFFFF',
+                color: project.isOpenToHandover ? '#4338CA' : '#334155',
+                border: `1.5px solid ${project.isOpenToHandover ? '#818CF8' : '#CBD5E1'}`,
+              }}
+              title={project.isOpenToHandover ? 'Handover status is Active — Click to remove from open handover queue' : 'Mark this project as Open to Handover in the continuity directory'}
+            >
+              <GitFork size={14} color={project.isOpenToHandover ? '#4338CA' : '#64748B'} />
+              <span>{project.isOpenToHandover ? 'Handover Open (Active)' : 'Mark Open to Handover'}</span>
+            </button>
+
+            {/* View Handover Dossier Button */}
             <button
               type="button"
               onClick={(e) => onOpenHandover && onOpenHandover(project, e)}
@@ -210,12 +317,12 @@ export default function ProjectDetailView({
                 color: '#7C3AED',
                 border: '1.5px solid #DDD6FE',
               }}
-              title="Open Project in Versioned Handover Protocol"
+              title="Inspect or execute formal handover transition certificate"
               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#EDE9FE'; e.currentTarget.style.borderColor = '#8B5CF6'; }}
               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#F5F3FF'; e.currentTarget.style.borderColor = '#DDD6FE'; }}
             >
-              <GitFork size={14} color="#7C3AED" />
-              <span>Open to Handover</span>
+              <Sparkles size={14} color="#7C3AED" />
+              <span>Handover Dossier</span>
             </button>
 
             <button
@@ -323,19 +430,19 @@ export default function ProjectDetailView({
           <div className="pn-kpi-header">
             <span className="pn-kpi-label">Team Registration</span>
             <div className="pn-kpi-icon-wrap" style={{
-              backgroundColor: project.isAccessCodeClaimed ? '#ECFDF5' : '#FFFBEB',
-              color: project.isAccessCodeClaimed ? '#059669' : '#D97706'
+              backgroundColor: isTeamRegistered ? '#ECFDF5' : '#FFFBEB',
+              color: isTeamRegistered ? '#059669' : '#D97706'
             }}>
               <Users className="w-4 h-4" />
             </div>
           </div>
           <div className="pn-kpi-value-row">
             <div style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {project.isAccessCodeClaimed ? (project.team?.name || 'Registered Team') : 'Pending Claim'}
+              {isTeamRegistered ? (project.team?.name || 'Registered Team') : 'Pending Claim'}
             </div>
           </div>
           <div className="pn-kpi-subtext">
-            {project.isAccessCodeClaimed ? (
+            {isTeamRegistered ? (
               <span style={{ color: '#059669', fontWeight: 600 }}>Active in Workspace</span>
             ) : (
               <span>Invite: {project.invitedLeadEmail ? project.invitedLeadEmail.split('@')[0] : 'Unassigned'}</span>
@@ -376,12 +483,150 @@ export default function ProjectDetailView({
         {/* LEFT COLUMN: Narrative, Engineering Specs, Timeline */}
         <div className="pn-content-col">
           
-          {/* Student-Submitted Project Summary & Live Status */}
+          {/* 1. Live Team Status from Students */}
+          {(() => {
+            const activeStatusMsg = project.teamStatusUpdate?.message || project.currentStatusNote || '';
+            const statusAuthor = project.teamStatusUpdate?.updatedBy || project.team?.leader?.name || project.team?.lead?.name || 'Student Team';
+            const statusDate = project.teamStatusUpdate?.updatedAt || project.summaryLastUpdatedAt;
+            const historyList = Array.isArray(project.teamStatusHistory) ? project.teamStatusHistory : [];
+
+            return (
+              <div className="pn-panel" style={{ border: activeStatusMsg ? '1.5px solid #BBF7D0' : '1px solid #E2E8F0' }}>
+                <div className="pn-panel-header">
+                  <div className="pn-panel-title-group">
+                    <span style={{
+                      width: '9px',
+                      height: '9px',
+                      borderRadius: '50%',
+                      backgroundColor: activeStatusMsg ? '#10B981' : '#94A3B8',
+                      boxShadow: activeStatusMsg ? '0 0 0 3px rgba(16, 185, 129, 0.25)' : 'none',
+                      display: 'inline-block'
+                    }} />
+                    <MessageSquare className="w-4 h-4 text-emerald-600" />
+                    <h3 className="pn-panel-title">Current Live Team Status</h3>
+                  </div>
+                  {activeStatusMsg ? (
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '3px 9px',
+                      borderRadius: '6px',
+                      backgroundColor: '#ECFDF5',
+                      color: '#047857',
+                      border: '1px solid #A7F3D0'
+                    }}>
+                      Live Sprint Update
+                    </span>
+                  ) : (
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      padding: '3px 9px',
+                      borderRadius: '6px',
+                      backgroundColor: '#F1F5F9',
+                      color: '#64748B',
+                      border: '1px solid #E2E8F0'
+                    }}>
+                      Awaiting Team Update
+                    </span>
+                  )}
+                </div>
+
+                {activeStatusMsg ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{
+                      padding: '16px',
+                      backgroundColor: '#F0FDF4',
+                      border: '1px solid #BBF7D0',
+                      borderRadius: '12px',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '12px'
+                    }}>
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        backgroundColor: '#DCFCE7',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#15803D',
+                        flexShrink: 0,
+                        marginTop: '2px'
+                      }}>
+                        <CheckCircle2 className="w-5 h-5" />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#15803D', letterSpacing: '0.04em', marginBottom: '4px' }}>
+                          Current Status Note:
+                        </div>
+                        <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#14532D', lineHeight: 1.5 }}>
+                          "{activeStatusMsg}"
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11.5px', color: '#166534', marginTop: '8px' }}>
+                          <span>Updated by: <strong>{statusAuthor}</strong></span>
+                          {statusDate && <span>• {formatTimestamp(statusDate)}</span>}
+                          {statusDate && getRelativeTime(statusDate) && <span style={{ color: '#047857', fontWeight: 600 }}>({getRelativeTime(statusDate)})</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Status history list if available */}
+                    {historyList.length > 1 && (
+                      <div style={{ marginTop: '2px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748B', marginBottom: '8px', letterSpacing: '0.04em' }}>
+                          Previous Updates ({historyList.length})
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {historyList.slice(1, 4).map((h, hIdx) => (
+                            <div key={hIdx} style={{
+                              padding: '8px 12px',
+                              backgroundColor: '#F8FAFC',
+                              borderRadius: '8px',
+                              border: '1px solid #E2E8F0',
+                              fontSize: '12px',
+                              color: '#334155',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '10px'
+                            }}>
+                              <span style={{ fontWeight: 500, flex: 1 }}>"{h.message}"</span>
+                              <span style={{ fontSize: '10.5px', color: '#94A3B8', whiteSpace: 'nowrap' }}>
+                                {h.updatedBy || 'Member'} • {formatTimestamp(h.updatedAt)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="pn-empty-summary">
+                    <div className="pn-empty-summary-icon" style={{ backgroundColor: '#F0FDF4', color: '#16A34A' }}>
+                      <MessageSquare className="w-5 h-5" />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
+                        No Live Team Status Message Yet
+                      </div>
+                      <p style={{ fontSize: '12px', color: '#64748B', margin: '2px 0 0', lineHeight: 1.4 }}>
+                        The student team can broadcast real-time sprint updates directly from their Student Team Workspace.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* 2. Student-Authored Project Summary & Architecture Brief */}
           <div className="pn-panel">
             <div className="pn-panel-header">
               <div className="pn-panel-title-group">
                 <Sparkles className="w-4 h-4 text-blue-600" />
-                <h3 className="pn-panel-title">Student Project Summary & Live Status</h3>
+                <h3 className="pn-panel-title">Student Technical Architecture & Project Brief</h3>
               </div>
               {project.studentSummary ? (
                 <span style={{
@@ -415,21 +660,6 @@ export default function ProjectDetailView({
                 <div className="pn-summary-box">
                   {project.studentSummary}
                 </div>
-
-                {project.currentStatusNote && (
-                  <div className="pn-status-note-box">
-                    <CheckCircle2 className="w-4 h-4 shrink-0" style={{ marginTop: '2px' }} />
-                    <div>
-                      <strong style={{ display: 'block', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Current Development Status / Notes:
-                      </strong>
-                      <span style={{ fontSize: '12.5px', fontWeight: 500 }}>
-                        {project.currentStatusNote}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
                 {project.summaryLastUpdatedAt && (
                   <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'monospace', textAlign: 'right' }}>
                     Updated by student team: {formatTimestamp(project.summaryLastUpdatedAt)}
@@ -443,7 +673,7 @@ export default function ProjectDetailView({
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
-                    No Project Summary Submitted Yet
+                    No Technical Brief Submitted Yet
                   </div>
                   <p style={{ fontSize: '12px', color: '#64748B', margin: '2px 0 0', lineHeight: 1.4 }}>
                     The student team can submit their technical architecture summary, module breakdown, and weekly notes directly from the Student Team Workspace.
@@ -532,6 +762,380 @@ export default function ProjectDetailView({
             )}
           </div>
 
+          {/* 3. Git Webhook Ingestion & Commit Telemetry Stream */}
+          <div className="pn-panel" style={{ border: (gitEvents.length > 0 || gitSummary?.isConnected) ? '1.5px solid #DDD6FE' : '1px solid #E2E8F0' }}>
+            <div className="pn-panel-header" style={{ flexWrap: 'wrap', gap: '10px' }}>
+              <div className="pn-panel-title-group">
+                <span style={{
+                  width: '9px',
+                  height: '9px',
+                  borderRadius: '50%',
+                  backgroundColor: (gitEvents.length > 0 || gitSummary?.isConnected) ? '#8B5CF6' : '#94A3B8',
+                  boxShadow: (gitEvents.length > 0 || gitSummary?.isConnected) ? '0 0 0 3px rgba(139, 92, 246, 0.25)' : 'none',
+                  display: 'inline-block'
+                }} />
+                <FolderGit2 className="w-4 h-4 text-purple-600" />
+                <h3 className="pn-panel-title">Git Webhook Telemetry & Code Stream</h3>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '3px 9px',
+                  borderRadius: '6px',
+                  backgroundColor: (gitEvents.length > 0 || gitSummary?.isConnected) ? '#F5F3FF' : '#F1F5F9',
+                  color: (gitEvents.length > 0 || gitSummary?.isConnected) ? '#6D28D9' : '#64748B',
+                  border: `1px solid ${(gitEvents.length > 0 || gitSummary?.isConnected) ? '#DDD6FE' : '#CBD5E1'}`
+                }}>
+                  {(gitEvents.length > 0 || gitSummary?.isConnected) ? 'Webhook Ingestion Active' : 'Awaiting First Push'}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={handleSimulateGitPush}
+                  disabled={isSimulatingGit}
+                  className="pn-action-btn-secondary"
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '11.5px',
+                    gap: '5px',
+                    backgroundColor: '#FAF5FF',
+                    color: '#7C3AED',
+                    borderColor: '#DDD6FE'
+                  }}
+                  title="Simulate a realistic Git push event to verify webhook tracing"
+                >
+                  <GitCommit className="w-3.5 h-3.5" />
+                  <span>{isSimulatingGit ? 'Injecting...' : 'Simulate Test Push'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={fetchGitEvents}
+                  disabled={isLoadingGitEvents}
+                  className="pn-action-btn-secondary"
+                  style={{ padding: '4px 8px', fontSize: '11.5px' }}
+                  title="Refresh webhook telemetry events"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingGitEvents ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Simulation feedback alert */}
+            {gitSimFeedback && (
+              <div style={{
+                marginBottom: '14px',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                backgroundColor: '#F0FDF4',
+                border: '1px solid #BBF7D0',
+                color: '#15803D',
+                fontSize: '12px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{gitSimFeedback}</span>
+              </div>
+            )}
+
+            {/* Webhook Tracking URL & Stats Header */}
+            <div style={{
+              padding: '12px 14px',
+              backgroundColor: '#F8FAFC',
+              borderRadius: '10px',
+              border: '1px solid #E2E8F0',
+              marginBottom: '14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#475569' }}>
+                  <span style={{ fontWeight: 700, color: '#0F172A' }}>Webhook Endpoint:</span>
+                  <code style={{
+                    backgroundColor: '#FFFFFF',
+                    padding: '2px 8px',
+                    borderRadius: '5px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '11.5px',
+                    color: '#2563EB',
+                    fontFamily: 'monospace'
+                  }}>
+                    http://localhost:5000/api/webhooks/repo/{project.projectId}
+                  </code>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopyChip(`http://localhost:5000/api/webhooks/repo/${project.projectId}`)}
+                  style={{
+                    background: '#FFFFFF',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '6px',
+                    padding: '3px 8px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: '#475569',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {copiedChip === `http://localhost:5000/api/webhooks/repo/${project.projectId}` ? (
+                    <><Check className="w-3.5 h-3.5 text-emerald-600" /> Copied!</>
+                  ) : (
+                    <><Copy className="w-3.5 h-3.5" /> Copy URL</>
+                  )}
+                </button>
+              </div>
+
+              {/* 4 Quick Metrics */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px', paddingTop: '6px', borderTop: '1px solid #F1F5F9' }}>
+                <div>
+                  <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Commits Traced</div>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginTop: '2px' }}>
+                    {gitSummary?.totalCommits ?? gitEvents.length}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Pull Requests</div>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginTop: '2px' }}>
+                    {gitSummary?.totalPullRequests ?? 0}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Contributors</div>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginTop: '2px' }}>
+                    {gitSummary?.contributors?.length ?? 0}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Latest Commit</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, fontFamily: 'monospace', color: '#2563EB', marginTop: '2px' }}>
+                    {gitSummary?.lastCommitSha ? gitSummary.lastCommitSha.slice(0, 7) : (gitEvents[0]?.commitSha ? gitEvents[0].commitSha.slice(0, 7) : 'None')}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Contributor Ledger if present */}
+            {gitSummary?.contributors && gitSummary.contributors.length > 0 && (
+              <div style={{ marginBottom: '14px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748B', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                  Tracked Contributor Activity ({gitSummary.contributors.length})
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
+                  {gitSummary.contributors.map((c, cIdx) => (
+                    <div key={cIdx} style={{
+                      padding: '10px 12px',
+                      backgroundColor: '#FFFFFF',
+                      borderRadius: '8px',
+                      border: '1px solid #E2E8F0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px'
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A' }}>
+                          {c.name || c.githubUsername || 'Contributor'}
+                        </div>
+                        {c.githubUsername && (
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>
+                            @{c.githubUsername}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          backgroundColor: '#EFF6FF',
+                          color: '#1D4ED8',
+                          padding: '2px 7px',
+                          borderRadius: '5px'
+                        }}>
+                          {c.commitCount} {c.commitCount === 1 ? 'commit' : 'commits'}
+                        </span>
+                        <div style={{ fontSize: '10.5px', color: '#16A34A', fontWeight: 600, marginTop: '2px' }}>
+                          +{c.linesAdded || 0} lines
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Live Commits List */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748B', letterSpacing: '0.04em' }}>
+                  Live Commit Ingestion Stream ({gitEvents.length})
+                </div>
+                {gitSummary?.lastEventAt && (
+                  <span style={{ fontSize: '10.5px', color: '#94A3B8' }}>
+                    Last payload: {getRelativeTime(gitSummary.lastEventAt)}
+                  </span>
+                )}
+              </div>
+
+              {gitEvents.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '380px', overflowY: 'auto', paddingRight: '4px' }}>
+                  {gitEvents.map((ev, evIdx) => {
+                    const commitShaShort = ev.commitSha ? ev.commitSha.slice(0, 7) : 'commit';
+                    const branchName = ev.rawPayloadSummary?.branch || 'main';
+                    const files = ev.filesChanged || {};
+                    const totalDelta = (files.added || 0) + (files.modified || 0);
+
+                    return (
+                      <div key={ev._id || evIdx} style={{
+                        padding: '12px 14px',
+                        backgroundColor: '#FFFFFF',
+                        borderRadius: '10px',
+                        border: '1px solid #E2E8F0',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        transition: 'border-color 0.15s ease'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                            <span style={{
+                              fontFamily: 'monospace',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              backgroundColor: '#F1F5F9',
+                              color: '#2563EB',
+                              padding: '2px 7px',
+                              borderRadius: '4px',
+                              border: '1px solid #CBD5E1',
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => handleCopyChip(ev.commitSha)}
+                            title="Click to copy full commit SHA"
+                            >
+                              {commitShaShort}
+                            </span>
+                            <span style={{
+                              fontSize: '10.5px',
+                              fontWeight: 700,
+                              backgroundColor: '#EEF2FF',
+                              color: '#4338CA',
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}>
+                              {branchName}
+                            </span>
+                            {ev.eventType === 'pull_request' && (
+                              <span style={{
+                                fontSize: '10.5px',
+                                fontWeight: 700,
+                                backgroundColor: '#FAF5FF',
+                                color: '#7E22CE',
+                                padding: '2px 6px',
+                                borderRadius: '4px'
+                              }}>
+                                Pull Request
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>
+                            {formatTimestamp(ev.receivedAt || ev.createdAt)}
+                            {getRelativeTime(ev.receivedAt || ev.createdAt) && (
+                              <span style={{ marginLeft: '4px', color: '#94A3B8' }}>
+                                ({getRelativeTime(ev.receivedAt || ev.createdAt)})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Commit Message */}
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A', lineHeight: 1.45 }}>
+                          {ev.message || 'No commit message recorded'}
+                        </div>
+
+                        {/* Author & File Stats Row */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <User className="w-3.5 h-3.5 text-slate-400" />
+                            <span>
+                              <strong>{ev.author?.name || 'Contributor'}</strong>
+                              {ev.author?.githubUsername && <span style={{ color: '#94A3B8' }}> (@{ev.author.githubUsername})</span>}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {totalDelta > 0 && (
+                              <span style={{ color: '#16A34A', fontWeight: 700 }}>
+                                +{totalDelta} {totalDelta === 1 ? 'file' : 'files'}
+                              </span>
+                            )}
+                            {files.removed > 0 && (
+                              <span style={{ color: '#DC2626', fontWeight: 700 }}>
+                                -{files.removed}
+                              </span>
+                            )}
+                            {ev.rawPayloadSummary?.url && (
+                              <a
+                                href={ev.rawPayloadSummary.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ color: '#2563EB', display: 'flex', alignItems: 'center', gap: '3px', textDecoration: 'none' }}
+                              >
+                                View <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{
+                  padding: '24px 16px',
+                  backgroundColor: '#F8FAFC',
+                  borderRadius: '10px',
+                  border: '1px dashed #CBD5E1',
+                  textAlign: 'center'
+                }}>
+                  <FolderGit2 className="w-8 h-8 text-slate-400" style={{ margin: '0 auto 8px' }} />
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
+                    No Commits Traced Yet via Webhook
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 12px', lineHeight: 1.45 }}>
+                    When team members push code to GitHub through the webhook URL, commits and file changes stream here live.<br />
+                    Click <strong>"Simulate Test Push"</strong> above to test the ingestion pipeline immediately.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSimulateGitPush}
+                    disabled={isSimulatingGit}
+                    style={{
+                      padding: '7px 14px',
+                      backgroundColor: '#7C3AED',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '7px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Simulate Test Git Push Now
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Timeline of Major Events & Telemetry */}
           <div className="pn-panel">
             <div className="pn-panel-header">
@@ -571,108 +1175,8 @@ export default function ProjectDetailView({
 
         </div>
 
-        {/* RIGHT COLUMN: Access Code Security Vault & Team Roster */}
+        {/* RIGHT COLUMN: Team Roster & Supervisor */}
         <div className="pn-content-col">
-          
-          {/* Team Access Code Vault Card */}
-          <div className="pn-code-vault">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ShieldCheck className="w-4 h-4 text-blue-400" />
-                <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Team Access Security Vault
-                </span>
-              </div>
-              <span style={{
-                fontSize: '10.5px',
-                fontWeight: 700,
-                padding: '2px 8px',
-                borderRadius: '999px',
-                backgroundColor: project.accessCodeStatus === 'revoked'
-                  ? 'rgba(239, 68, 68, 0.25)'
-                  : project.isAccessCodeClaimed
-                  ? 'rgba(16, 185, 129, 0.25)'
-                  : 'rgba(59, 130, 246, 0.25)',
-                color: project.accessCodeStatus === 'revoked'
-                  ? '#FCA5A5'
-                  : project.isAccessCodeClaimed
-                  ? '#6EE7B7'
-                  : '#93C5FD',
-                border: '1px solid rgba(255, 255, 255, 0.1)'
-              }}>
-                {project.accessCodeStatus === 'revoked' ? 'Revoked' : project.isAccessCodeClaimed ? 'Claimed' : 'Active & Ready'}
-              </span>
-            </div>
-
-            <div className="pn-code-display">
-              {project.teamAccessCode || 'NEXUS-XXXX'}
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={handleCopyCode}
-                className="pn-vault-btn-copy"
-              >
-                {copiedCode ? (
-                  <>
-                    <Check className="w-4 h-4 stroke-[3]" />
-                    <span>Copied Access Code to Clipboard!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4" />
-                    <span>Copy Team Access Code</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onOpenSendInvite && onOpenSendInvite(project)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  padding: '9px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  color: '#FFFFFF',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: '8px',
-                  fontSize: '12.5px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'background 0.15s ease'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.16)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
-              >
-                <Mail className="w-4 h-4 text-blue-400" />
-                <span>Send Registration Email</span>
-              </button>
-            </div>
-
-            <div className="pn-vault-actions">
-              <button
-                type="button"
-                onClick={() => setShowRegenConfirm(true)}
-                className="pn-vault-btn-sub"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Regenerate</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowRevokeConfirm(true)}
-                className="pn-vault-btn-sub danger"
-              >
-                <Slash className="w-3.5 h-3.5" />
-                <span>Revoke</span>
-              </button>
-            </div>
-          </div>
 
           {/* Assigned Team Roster Panel */}
           <div className="pn-panel">
@@ -681,7 +1185,7 @@ export default function ProjectDetailView({
                 <Users className="w-4 h-4 text-blue-600" />
                 <h3 className="pn-panel-title">Assigned Team Roster</h3>
               </div>
-              {project.isAccessCodeClaimed && (
+              {isTeamRegistered && (
                 <span style={{
                   fontSize: '11px',
                   fontWeight: 600,
@@ -696,7 +1200,7 @@ export default function ProjectDetailView({
               )}
             </div>
 
-            {project.isAccessCodeClaimed && (project.team?.name || project.team?.leader?.name) ? (
+            {isTeamRegistered ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {project.team?.name && (
                   <div style={{
@@ -829,6 +1333,38 @@ export default function ProjectDetailView({
                   </div>
                 )}
 
+                {project.teamAccessCode && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    backgroundColor: '#FEF3C7',
+                    borderRadius: '8px',
+                    border: '1px solid #FDE68A',
+                    fontSize: '12px',
+                    color: '#92400E'
+                  }}>
+                    <span>Access Code: <strong style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }}>{project.teamAccessCode}</strong></span>
+                    <button
+                      type="button"
+                      onClick={handleCopyCode}
+                      style={{
+                        background: '#FFFFFF',
+                        border: '1px solid #FCD34D',
+                        borderRadius: '6px',
+                        padding: '3px 8px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#78350F',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {copiedCode ? 'Copied!' : 'Copy Code'}
+                    </button>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={() => onOpenSendInvite && onOpenSendInvite(project)}
@@ -926,80 +1462,6 @@ export default function ProjectDetailView({
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Permanently Delete Project</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── 6. Regenerate Code Confirmation Modal ── */}
-      {showRegenConfirm && (
-        <div className="pn-modal-backdrop" onClick={() => setShowRegenConfirm(false)}>
-          <div className="pn-modal-dialog" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2563EB' }}>
-              <RefreshCw className="w-5 h-5" />
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0F172A' }}>
-                Regenerate Access Code?
-              </h3>
-            </div>
-            <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: 1.5 }}>
-              Regenerating will instantly deactivate the previous access code (<code>{project.teamAccessCode}</code>) and generate a new secure code for the student team.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button
-                type="button"
-                onClick={() => setShowRegenConfirm(false)}
-                className="pn-action-btn-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onRegenerateCode && onRegenerateCode(project.projectId);
-                  setShowRegenConfirm(false);
-                }}
-                className="pn-action-btn-primary"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>Confirm & Regenerate</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── 7. Revoke Code Confirmation Modal ── */}
-      {showRevokeConfirm && (
-        <div className="pn-modal-backdrop" onClick={() => setShowRevokeConfirm(false)}>
-          <div className="pn-modal-dialog" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#DC2626' }}>
-              <Slash className="w-5 h-5" />
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0F172A' }}>
-                Revoke Team Access Code?
-              </h3>
-            </div>
-            <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: 1.5 }}>
-              Revoking will block student logins using this access code until an administrator regenerates a new code.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button
-                type="button"
-                onClick={() => setShowRevokeConfirm(false)}
-                className="pn-action-btn-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onRevokeCode && onRevokeCode(project.projectId);
-                  setShowRevokeConfirm(false);
-                }}
-                className="pn-action-btn-danger"
-              >
-                <Slash className="w-4 h-4" />
-                <span>Confirm Revoke</span>
               </button>
             </div>
           </div>

@@ -96,10 +96,7 @@ export default function WorkspaceLoginPage({ onLoginSuccess, onBack }) {
         </button>
 
         {/* Icon + Heading */}
-        <div
-          className="auth-icon-wrap"
-          style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
-        >
+        <div className="auth-icon-wrap">
           <Users style={{ width: 24, height: 24, color: '#fff' }} />
         </div>
 
@@ -109,14 +106,7 @@ export default function WorkspaceLoginPage({ onLoginSuccess, onBack }) {
         </p>
 
         {/* Badge */}
-        <div
-          className="auth-badge"
-          style={{
-            background: 'rgba(99,102,241,0.12)',
-            borderColor: 'rgba(99,102,241,0.3)',
-            color: '#a5b4fc'
-          }}
-        >
+        <div className="auth-badge">
           <ShieldCheck style={{ width: 13, height: 13 }} />
           Team Lead / Member Access
         </div>
@@ -189,7 +179,6 @@ export default function WorkspaceLoginPage({ onLoginSuccess, onBack }) {
             type="submit"
             className="auth-submit-btn"
             disabled={isLoading}
-            style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
           >
             {isLoading ? (
               <>
@@ -209,7 +198,7 @@ export default function WorkspaceLoginPage({ onLoginSuccess, onBack }) {
         <p className="auth-footer-hint">
           First time here?{' '}
           Go back and click{' '}
-          <strong style={{ color: '#fbbf24' }}>Enter Access Code</strong>{' '}
+          <strong style={{ color: '#2563EB' }}>Enter Access Code</strong>{' '}
           to redeem your invitation.
         </p>
       </div>

@@ -8,6 +8,7 @@ import HandoverModal from './components/HandoverModal';
 import HandoverDossierPage from './components/HandoverDossierPage';
 import WorkspaceLoginPage from './components/WorkspaceLoginPage';
 import AccessCodePage from './components/AccessCodePage';
+import PublicProjectsCatalogPage from './components/PublicProjectsCatalogPage';
 import { 
   initialProjects, 
   initialTasks, 
@@ -284,7 +285,14 @@ export default function App() {
           onEnterWorkspace={() => navigateTo('workspace-login')}
           onEnterAccessCode={() => navigateTo('access-code')}
           onOpenHandoverDemo={() => navigateTo('handover-dossier')}
+          onViewProjects={() => navigateTo('public-projects')}
           onOpenInviteModal={() => setIsInviteModalOpen(true)}
+        />
+      ) : currentView === 'public-projects' ? (
+        <PublicProjectsCatalogPage
+          onBack={() => navigateTo('home')}
+          onEnterAdmin={handleNavigateToAdmin}
+          onEnterWorkspace={() => navigateTo('workspace-login')}
         />
       ) : currentView === 'handover-dossier' ? (
         <HandoverDossierPage

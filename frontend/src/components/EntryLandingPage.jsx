@@ -31,7 +31,8 @@ import {
   BarChart3,
   Clock,
   Menu,
-  ExternalLink
+  ExternalLink,
+  FolderGit2
 } from 'lucide-react';
 
 /* ── Animated counter hook ── */
@@ -100,7 +101,8 @@ export default function EntryLandingPage({
   onEnterAdmin,
   onEnterWorkspace,
   onEnterAccessCode,
-  onOpenHandoverDemo
+  onOpenHandoverDemo,
+  onViewProjects
 }) {
   const [activeModal, setActiveModal] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -214,7 +216,8 @@ export default function EntryLandingPage({
       gradient: 'from-cyan-500 to-teal-600',
       tag: 'Multi-Year Vault',
       onClick: () => {
-        setActiveModal('archive_info');
+        if (onViewProjects) onViewProjects();
+        else setActiveModal('archive_info');
       }
     }
   ];
@@ -248,6 +251,10 @@ export default function EntryLandingPage({
 
           {/* Desktop CTAs */}
           <div className="landing-nav-ctas">
+            <button onClick={onViewProjects} className="landing-btn-ghost">
+              <FolderGit2 className="w-4 h-4 text-indigo-600 inline mr-1" />
+              View Projects
+            </button>
             <button onClick={onEnterAdmin} className="landing-btn-ghost">
               Admin Dashboard
             </button>
@@ -273,6 +280,7 @@ export default function EntryLandingPage({
             <button onClick={() => handleScrollToSection('roles-section')}>Role Portals</button>
             <button onClick={() => handleScrollToSection('architecture-section')}>Architecture</button>
             <hr />
+            <button onClick={() => { onViewProjects?.(); setMobileMenuOpen(false); }}>View Projects</button>
             <button onClick={() => { onEnterAdmin?.(); setMobileMenuOpen(false); }}>Admin Dashboard</button>
             <button onClick={() => { onEnterWorkspace?.(); setMobileMenuOpen(false); }} className="landing-mobile-cta">
               Login to Workspace →
@@ -307,6 +315,11 @@ export default function EntryLandingPage({
 
           {/* CTA Buttons */}
           <div className="landing-hero-ctas">
+            <button onClick={onViewProjects} className="landing-btn-view-projects">
+              <FolderGit2 className="w-4 h-4 text-indigo-600" />
+              <span>View Projects</span>
+            </button>
+
             <button onClick={onEnterAccessCode} className="landing-btn-primary">
               <Play className="w-4 h-4" />
               <span>Enter Access Code</span>
@@ -586,6 +599,7 @@ export default function EntryLandingPage({
             </div>
             <div className="landing-footer-col">
               <span className="landing-footer-col-title">Access</span>
+              <button onClick={onViewProjects}>View Projects</button>
               <button onClick={onEnterAdmin}>Admin Dashboard</button>
               <button onClick={onEnterWorkspace}>Team Workspace</button>
               <button onClick={onOpenHandoverDemo}>Handover Demo</button>

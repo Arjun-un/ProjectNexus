@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard,
   FolderGit2,
@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   LogOut,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 
 import DashboardHomeView from './DashboardHomeView';
@@ -190,24 +191,29 @@ export default function AdminDashboard({ adminUser, onLogout, onOpenHandover }) 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [copiedCode, setCopiedCode] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch from live backend if available
-  useEffect(() => {
-    const fetchBackendData = async () => {
-      try {
-        const res = await fetch('http://localhost:5000/api/projects');
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data?.projects)) {
-            setProjects(json.data.projects);
-          }
+  const fetchBackendData = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/projects');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data?.projects)) {
+          setProjects(json.data.projects);
         }
-      } catch (err) {
-        // Fallback to INITIAL_PROJECTS
       }
-    };
-    fetchBackendData();
+    } catch (err) {
+      // Fallback to INITIAL_PROJECTS
+    } finally {
+      setIsRefreshing(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchBackendData();
+  }, [fetchBackendData, currentSection, selectedProjectId]);
 
   // Compute live KPIs
   const totalCount = projects.length;
@@ -387,6 +393,59 @@ export default function AdminDashboard({ adminUser, onLogout, onOpenHandover }) 
       });
     } catch (err) {
       console.error('Failed to sync project status to backend:', err);
+    }
+  };
+
+  // Toggle project Open to Handover status
+  const handleToggleHandover = async (projectId, targetState, reason) => {
+    const pid = projectId;
+    const project = projects.find(p => p.projectId === pid || p._id === pid);
+    if (!project) return;
+
+    const nextState = targetState !== undefined ? Boolean(targetState) : !project.isOpenToHandover;
+    const defaultReason = reason || (nextState ? 'Academic term conclusion and senior team internship migration' : '');
+
+    // Optimistic UI update
+    setProjects(prev => prev.map(p => {
+      if (p.projectId === pid || p._id === pid) {
+        return {
+          ...p,
+          isOpenToHandover: nextState,
+          handoverOpenedAt: nextState ? new Date() : null,
+          handoverReason: defaultReason,
+          timeline: [
+            {
+              _id: 'tl_ho_' + Date.now(),
+              title: nextState ? 'Project Marked Open for Handover' : 'Handover Status Closed',
+              description: nextState
+                ? `Institutional Administrator marked this project open for continuity handover.${defaultReason ? ` Reason: ${defaultReason}` : ''}`
+                : 'Institutional Administrator removed this project from the open handover queue.',
+              timestamp: 'Just now',
+              type: nextState ? 'handover' : 'status_change'
+            },
+            ...(p.timeline || [])
+          ]
+        };
+      }
+      return p;
+    }));
+
+    // Persist to backend database
+    try {
+      const res = await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(pid)}/toggle-handover`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isOpenToHandover: nextState,
+          handoverReason: defaultReason
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setProjects(prev => prev.map(p => (p.projectId === pid || p._id === pid ? { ...p, ...data.data } : p)));
+      }
+    } catch (err) {
+      console.error('Failed to sync handover status to backend:', err);
     }
   };
 
@@ -600,6 +659,18 @@ export default function AdminDashboard({ adminUser, onLogout, onOpenHandover }) 
           {/* Right Action Icons & Primary Button */}
           <div className="admin-topbar-actions">
             
+            {/* Live Sync / Refresh Button */}
+            <button
+              onClick={() => fetchBackendData()}
+              className="admin-icon-btn"
+              type="button"
+              title="Refresh project & team data from server"
+              aria-label="Refresh Data"
+              disabled={isRefreshing}
+            >
+              <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} style={{ transition: 'transform 0.5s', transform: isRefreshing ? 'rotate(180deg)' : 'none' }} />
+            </button>
+
             {/* Notification Bell */}
             <div style={{ position: 'relative' }}>
               <button
@@ -737,6 +808,7 @@ export default function AdminDashboard({ adminUser, onLogout, onOpenHandover }) 
               onRevokeCode={handleRevokeCode}
               onDeleteProject={handleDeleteProject}
               onMarkCompleted={handleMarkCompleted}
+              onToggleHandover={handleToggleHandover}
               onOpenHandover={handleOpenHandover}
               getCategoryBadge={getCategoryBadge}
               getStatusBadge={getStatusBadge}
@@ -782,6 +854,7 @@ export default function AdminDashboard({ adminUser, onLogout, onOpenHandover }) 
               getStatusBadge={getStatusBadge}
               onDeleteProject={handleDeleteProject}
               onMarkCompleted={handleMarkCompleted}
+              onToggleHandover={handleToggleHandover}
               onOpenHandover={handleOpenHandover}
             />
           ) : currentSection === 'teams' ? (

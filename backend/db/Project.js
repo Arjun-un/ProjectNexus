@@ -214,6 +214,16 @@ const projectSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
+  teamStatusUpdate: {
+    message: { type: String, default: '', trim: true },
+    updatedBy: { type: String, default: '', trim: true },
+    updatedAt: { type: Date, default: null }
+  },
+  teamStatusHistory: [{
+    message: { type: String, required: true, trim: true },
+    updatedBy: { type: String, default: 'Team Member', trim: true },
+    updatedAt: { type: Date, default: Date.now }
+  }],
   summaryLastUpdatedAt: {
     type: Date,
     default: null
@@ -221,6 +231,28 @@ const projectSchema = new mongoose.Schema({
   lastActivityDate: {
     type: Date,
     default: Date.now
+  },
+  isOpenToHandover: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  handoverOpenedAt: {
+    type: Date,
+    default: null
+  },
+  handoverReason: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  isContinuation: {
+    type: Boolean,
+    default: false
+  },
+  currentVersionNumber: {
+    type: Number,
+    default: 1
   },
   timeline: [timelineEventSchema],
   createdBy: {

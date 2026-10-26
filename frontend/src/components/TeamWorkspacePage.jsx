@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import './TeamWorkspacePage.css';
 import {
   Layers,
@@ -17,7 +17,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  RotateCcw,
   GitCommit,
   GitFork,
   AlertTriangle,
@@ -27,7 +26,6 @@ import {
   Plus,
   Send,
   ExternalLink,
-  History,
   RefreshCw,
   Info,
   Sparkles,
@@ -35,14 +33,14 @@ import {
   CalendarDays,
   UserCircle,
   GitBranch,
-  Eye,
   Mail,
   Trash2,
   Edit3,
   Save,
   X,
   ShieldCheck,
-  UserPlus
+  UserPlus,
+  Radio
 } from 'lucide-react';
 
 /* ── Compute days remaining until a date ── */
@@ -172,7 +170,59 @@ export default function TeamWorkspacePage({
   const [nextPlanInput, setNextPlanInput] = useState('');
   const [docLinkInput, setDocLinkInput] = useState('');
 
-  if (!project) return null;
+  // Quick status update states
+  const [quickStatusText, setQuickStatusText] = useState('');
+  const [statusAuthor, setStatusAuthor] = useState(() => teamLead?.name || 'Team Lead');
+  const [isPostingStatus, setIsPostingStatus] = useState(false);
+  const [statusPostFeedback, setStatusPostFeedback] = useState('');
+  const [statusHistory, setStatusHistory] = useState(() => project?.teamStatusHistory || []);
+
+  const handlePostQuickStatus = async (e) => {
+    if (e) e.preventDefault();
+    if (!quickStatusText.trim()) return;
+
+    setIsPostingStatus(true);
+    setStatusPostFeedback('');
+
+    const newNote = quickStatusText.trim();
+    const author = statusAuthor.trim() || teamLead?.name || 'Team Member';
+    const now = new Date();
+
+    // Optimistically update
+    setCurrentStatusNote(newNote);
+    const newEntry = { message: newNote, updatedBy: author, updatedAt: now };
+    setStatusHistory(prev => [newEntry, ...(Array.isArray(prev) ? prev.slice(0, 29) : [])]);
+
+    if (project) {
+      project.currentStatusNote = newNote;
+      project.teamStatusUpdate = newEntry;
+      project.summaryLastUpdatedAt = now;
+      if (!Array.isArray(project.teamStatusHistory)) project.teamStatusHistory = [];
+      project.teamStatusHistory = [newEntry, ...project.teamStatusHistory.slice(0, 29)];
+    }
+
+    try {
+      const projId = project.projectId || project.id || project._id;
+      await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(projId)}/status-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: newNote,
+          updatedBy: author
+        })
+      });
+      setStatusPostFeedback('Live status broadcasted to admin dashboard!');
+      setQuickStatusText('');
+      setTimeout(() => setStatusPostFeedback(''), 3500);
+    } catch (err) {
+      console.warn('Backend status post notice:', err.message);
+      setStatusPostFeedback('Status updated in local session!');
+      setQuickStatusText('');
+      setTimeout(() => setStatusPostFeedback(''), 3500);
+    } finally {
+      setIsPostingStatus(false);
+    }
+  };
 
   // Open modal and sync form data
   const handleOpenTeamModal = () => {
@@ -188,7 +238,7 @@ export default function TeamWorkspacePage({
 
   // Add a member in the modal edit list
   const handleAddMemberToEditList = (e) => {
-    e && e.preventDefault();
+    if (e) e.preventDefault();
     if (!newMemberName.trim()) {
       alert('Please enter a student member name.');
       return;
@@ -219,7 +269,7 @@ export default function TeamWorkspacePage({
 
   // Save team, project brief & GitHub repository details
   const handleSaveTeamSettings = async (e) => {
-    e && e.preventDefault();
+    if (e) e.preventDefault();
     setIsSavingTeam(true);
     setTeamSaveFeedback('');
 
@@ -285,7 +335,7 @@ export default function TeamWorkspacePage({
   };
 
   // Derived values
-  const projectTasks = tasks.filter(t => t.projectId === project.id || t.projectId === project.projectId);
+  const projectTasks = tasks.filter(t => t.projectId === project?.id || t.projectId === project?.projectId);
   const doneTasks    = projectTasks.filter(t => t.status === 'done');
   const isTracked    = Boolean(
     (projectTasks.length > 0) ||
@@ -295,7 +345,7 @@ export default function TeamWorkspacePage({
   );
   const progress     = projectTasks.length > 0
     ? Math.round((doneTasks.length / projectTasks.length) * 100)
-    : (isTracked ? (project.progress !== undefined ? project.progress : (project.currentProgress || 0)) : 0);
+    : (isTracked ? (project?.progress !== undefined ? project.progress : (project?.currentProgress || 0)) : 0);
 
   const health    = healthLabel(progress, isTracked);
   const daysLeft  = daysUntil(project?.expectedEndDate || project?.deadline);
@@ -313,9 +363,19 @@ export default function TeamWorkspacePage({
     }
   };
 
-  const rawProjectId = project.projectId || project.id || 'CSE-2026-041';
+  const rawProjectId = project?.projectId || project?.id || 'CSE-2026-041';
   const effectiveBaseUrl = (tunnelBaseUrl || '').trim().replace(/\/+$/, '') || 'http://localhost:5000';
   const trackingUrl = `${effectiveBaseUrl}/api/webhooks/repo/${rawProjectId}`;
+
+  // Accurate detection: Only projects that have undergone a handover show previous history
+  const hasHandoverHistory = useMemo(() => {
+    if (project?.isContinuation) return true;
+    if (project?.currentVersionNumber && Number(project.currentVersionNumber) > 1) return true;
+    if (project?.previousTeam && (project.previousTeam.name || project.previousTeam.version)) return true;
+    if (Array.isArray(project?.handoverHistory) && project.handoverHistory.length > 0) return true;
+    if (handoverRecord && (handoverRecord.projectId === project?.id || handoverRecord.projectId === project?.projectId)) return true;
+    return false;
+  }, [project, handoverRecord]);
 
   // Project-scoped milestones: clean initial 0% milestones for unconfigured projects
   const projectMilestones = useMemo(() => {
@@ -440,6 +500,73 @@ export default function TeamWorkspacePage({
     }
   };
 
+  // Git Webhook Telemetry Stream States
+  const [gitEvents, setGitEvents] = useState([]);
+  const [gitSummary, setGitSummary] = useState(null);
+  const [isLoadingGitEvents, setIsLoadingGitEvents] = useState(false);
+  const [isSimulatingGit, setIsSimulatingGit] = useState(false);
+  const [gitSimFeedback, setGitSimFeedback] = useState('');
+  const [copiedCommitSha, setCopiedCommitSha] = useState('');
+
+  const fetchGitEvents = useCallback(async () => {
+    if (!rawProjectId) return;
+    setIsLoadingGitEvents(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(rawProjectId)}/github/events`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setGitEvents(data.data || []);
+        setGitSummary(data.summary || null);
+        if (data.summary?.isConnected || (data.data && data.data.length > 0)) {
+          setRepoConnected(true);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch git events:', err.message);
+    } finally {
+      setIsLoadingGitEvents(false);
+    }
+  }, [rawProjectId]);
+
+  useEffect(() => {
+    fetchGitEvents();
+  }, [fetchGitEvents]);
+
+  const handleSimulateGitPush = async () => {
+    setIsSimulatingGit(true);
+    setGitSimFeedback('');
+    try {
+      const res = await fetch(`http://localhost:5000/api/webhooks/simulate/${encodeURIComponent(rawProjectId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `feat(team): live code telemetry test via webhook [${rawProjectId}]`,
+          authorName: teamLead?.name || 'Student Contributor'
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setGitSimFeedback('Test commit injected & traced by webhook!');
+        await fetchGitEvents();
+        setTimeout(() => setGitSimFeedback(''), 3500);
+      } else {
+        setGitSimFeedback(data.message || 'Simulation error');
+        setTimeout(() => setGitSimFeedback(''), 3500);
+      }
+    } catch {
+      setGitSimFeedback('Failed to reach webhook simulation server');
+      setTimeout(() => setGitSimFeedback(''), 3500);
+    } finally {
+      setIsSimulatingGit(false);
+    }
+  };
+
+  const handleCopySha = (sha) => {
+    navigator.clipboard.writeText(sha);
+    setCopiedCommitSha(sha);
+    setTimeout(() => setCopiedCommitSha(''), 2000);
+  };
+
   // Move task
   const handleMoveTask = (taskId, newStatus) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
@@ -497,6 +624,8 @@ export default function TeamWorkspacePage({
   /* ──────────────────────────────────────────────
      RENDER
      ────────────────────────────────────────────── */
+  if (!project) return null;
+
   return (
     <div className="twp-shell">
 
@@ -524,29 +653,36 @@ export default function TeamWorkspacePage({
         {/* Nav */}
         <nav className="twp-nav-section">
           <div className="twp-nav-label" style={{ marginTop: 12 }}>Navigation</div>
-          {NAV_ITEMS.map(({ id, label, Icon, badge }) => (
-            <button
-              key={id}
-              className={`twp-nav-item ${activeNav === id ? 'active' : ''}`}
-              onClick={() => setActiveNav(id)}
-            >
-              <Icon className="twp-nav-item-icon" />
-              {label}
-              {badge && (
-                <span className="twp-nav-badge">{badge}</span>
-              )}
-            </button>
-          ))}
+          {NAV_ITEMS.map(({ id, label, Icon, badge }) => {
+            const dynamicBadge = id === 'continuity'
+              ? (hasHandoverHistory ? `v${project.currentVersionNumber || 2}.0` : 'v1.0')
+              : badge;
+            return (
+              <button
+                key={id}
+                className={`twp-nav-item ${activeNav === id ? 'active' : ''}`}
+                onClick={() => setActiveNav(id)}
+              >
+                <Icon className="twp-nav-item-icon" />
+                {label}
+                {dynamicBadge && (
+                  <span className="twp-nav-badge">{dynamicBadge}</span>
+                )}
+              </button>
+            );
+          })}
 
           <div className="twp-nav-label" style={{ marginTop: 20 }}>Project</div>
           <button
-            className="twp-nav-item"
-            onClick={onTriggerHandover}
+            className={`twp-nav-item ${activeNav === 'continuity' ? 'active' : ''}`}
+            onClick={() => setActiveNav('continuity')}
           >
             <GitFork className="twp-nav-item-icon" />
             Handover History
-            {project.isContinuation && (
-              <span className="twp-nav-badge twp-nav-badge--blue">v{project.currentVersionNumber}</span>
+            {hasHandoverHistory ? (
+              <span className="twp-nav-badge twp-nav-badge--blue">v{project.currentVersionNumber || 2}.0</span>
+            ) : (
+              <span className="twp-nav-badge" style={{ background: 'rgba(255,255,255,0.08)', color: '#94a3b8' }}>v1.0</span>
             )}
           </button>
         </nav>
@@ -680,8 +816,8 @@ export default function TeamWorkspacePage({
                   </div>
                 </div>
 
-                {/* Continuation banner */}
-                {(project.isContinuation || (project.currentVersionNumber && project.currentVersionNumber > 1) || handoverRecord) && (
+                {/* Continuation banner - Only displayed if project has genuine handover lineage */}
+                {hasHandoverHistory && (
                   <div style={{
                     marginTop: 18,
                     background: 'linear-gradient(135deg, rgba(139,92,246,0.18) 0%, rgba(99,102,241,0.12) 100%)',
@@ -774,12 +910,199 @@ export default function TeamWorkspacePage({
                 {/* LEFT COLUMN */}
                 <div className="twp-overview-left">
 
-                  {/* Student-Authored Project Summary & Current Status */}
+                  {/* 1. Live Team Status Broadcast (Instantly updates Admin Dashboard) */}
+                  <div className="twp-card" style={{ border: '1.5px solid #a7f3d0', background: '#f0fdf4' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <div className="twp-card-title" style={{ margin: 0, color: '#065f46', display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <span style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          backgroundColor: currentStatusNote ? '#10b981' : '#94a3b8',
+                          boxShadow: currentStatusNote ? '0 0 0 3px rgba(16, 185, 129, 0.25)' : 'none',
+                          display: 'inline-block'
+                        }} />
+                        <Radio style={{ width: 15, height: 15, color: '#059669' }} />
+                        <span>Live Team Status Broadcast</span>
+                      </div>
+                      <span style={{
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: 999,
+                        backgroundColor: '#dcfce7',
+                        color: '#15803d',
+                        border: '1px solid #bbf7d0'
+                      }}>
+                        Live on Admin Portal
+                      </span>
+                    </div>
+
+                    {/* Current active status display */}
+                    {currentStatusNote ? (
+                      <div style={{
+                        padding: '12px 14px',
+                        backgroundColor: '#ffffff',
+                        borderRadius: 10,
+                        border: '1px solid #bbf7d0',
+                        marginBottom: 14,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                      }}>
+                        <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', color: '#047857', letterSpacing: '0.04em', marginBottom: 3 }}>
+                          Active Status Message:
+                        </div>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: '#14532d', lineHeight: 1.5 }}>
+                          "{currentStatusNote}"
+                        </div>
+                        <div style={{ fontSize: 11, color: '#166534', marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>Reported by: <strong>{project.teamStatusUpdate?.updatedBy || teamLead.name || 'Team Lead'}</strong></span>
+                          {project.summaryLastUpdatedAt && (
+                            <span>• {new Date(project.summaryLastUpdatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{
+                        padding: '10px 14px',
+                        backgroundColor: '#ffffff',
+                        borderRadius: 8,
+                        border: '1px dashed #86efac',
+                        marginBottom: 14,
+                        fontSize: 12,
+                        color: '#166534'
+                      }}>
+                        No status message posted yet. Type a sprint update below to notify your faculty guide & administrator.
+                      </div>
+                    )}
+
+                    {/* Quick status update form */}
+                    <form onSubmit={handlePostQuickStatus} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <input
+                          type="text"
+                          value={quickStatusText}
+                          onChange={(e) => setQuickStatusText(e.target.value)}
+                          placeholder="Update status message (e.g. Implementing OAuth2, testing payment webhooks...)"
+                          disabled={isPostingStatus}
+                          style={{
+                            flex: 1,
+                            minWidth: 220,
+                            padding: '9px 12px',
+                            borderRadius: 8,
+                            border: '1.5px solid #cbd5e1',
+                            fontSize: 12.5,
+                            backgroundColor: '#ffffff',
+                            color: '#0f172a',
+                            outline: 'none',
+                            fontFamily: 'inherit'
+                          }}
+                        />
+
+                        {/* Member author select */}
+                        <select
+                          value={statusAuthor}
+                          onChange={(e) => setStatusAuthor(e.target.value)}
+                          disabled={isPostingStatus}
+                          style={{
+                            padding: '9px 10px',
+                            borderRadius: 8,
+                            border: '1.5px solid #cbd5e1',
+                            fontSize: 12,
+                            backgroundColor: '#ffffff',
+                            color: '#334155',
+                            outline: 'none',
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value={teamLead.name || 'Team Lead'}>
+                            {teamLead.name ? `${teamLead.name} (Lead)` : 'Team Lead'}
+                          </option>
+                          {teamMembers.map((m, idx) => (
+                            <option key={idx} value={m.name || `Member ${idx + 1}`}>
+                              {m.name || `Member ${idx + 1}`} ({m.role || 'Member'})
+                            </option>
+                          ))}
+                        </select>
+
+                        <button
+                          type="submit"
+                          disabled={isPostingStatus || !quickStatusText.trim()}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '9px 16px',
+                            backgroundColor: isPostingStatus || !quickStatusText.trim() ? '#94a3b8' : '#059669',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: 8,
+                            fontSize: 12.5,
+                            fontWeight: 700,
+                            cursor: isPostingStatus || !quickStatusText.trim() ? 'not-allowed' : 'pointer',
+                            transition: 'background 0.15s ease',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          <Send style={{ width: 13, height: 13 }} />
+                          <span>{isPostingStatus ? 'Broadcasting...' : 'Post Status'}</span>
+                        </button>
+                      </div>
+
+                      {statusPostFeedback && (
+                        <div style={{
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          color: '#047857',
+                          backgroundColor: '#dcfce7',
+                          padding: '6px 10px',
+                          borderRadius: 6,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 5
+                        }}>
+                          <CheckCircle2 style={{ width: 13, height: 13 }} />
+                          <span>{statusPostFeedback}</span>
+                        </div>
+                      )}
+                    </form>
+
+                    {/* Recent updates history */}
+                    {statusHistory && statusHistory.length > 1 && (
+                      <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #d1fae5' }}>
+                        <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', color: '#047857', letterSpacing: '0.04em', marginBottom: 6 }}>
+                          Recent Updates ({statusHistory.length})
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          {statusHistory.slice(1, 4).map((item, idx) => (
+                            <div key={idx} style={{
+                              fontSize: 11.5,
+                              color: '#334155',
+                              backgroundColor: 'rgba(255,255,255,0.7)',
+                              padding: '5px 8px',
+                              borderRadius: 6,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 8
+                            }}>
+                              <span style={{ fontWeight: 500 }}>"{item.message}"</span>
+                              <span style={{ fontSize: 10, color: '#64748b', whiteSpace: 'nowrap' }}>
+                                {item.updatedBy || 'Member'} • {item.updatedAt ? new Date(item.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. Student-Authored Project Summary & Architecture Brief */}
                   <div className="twp-card" style={{ border: '1.5px solid #e0e7ff', background: '#faf5ff' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                       <div className="twp-card-title" style={{ margin: 0, color: '#4338ca' }}>
                         <Sparkles style={{ width: 14, height: 14, color: '#7c3aed' }} className="twp-card-title-icon" />
-                        Student Project Summary & Live Status
+                        Student Project Architecture & Brief
                       </div>
                       <button
                         onClick={handleOpenTeamModal}
@@ -807,15 +1130,6 @@ export default function TeamWorkspacePage({
                         <p className="twp-desc-text" style={{ color: '#1e1b4b', background: '#fff', padding: '12px 14px', borderRadius: 10, border: '1px solid #f3e8ff', margin: 0, lineHeight: 1.6 }}>
                           {studentSummary}
                         </p>
-                        {currentStatusNote && (
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', background: '#ecfdf5', borderRadius: 8, border: '1px solid #a7f3d0', fontSize: 12, color: '#065f46' }}>
-                            <CheckCircle2 style={{ width: 15, height: 15, color: '#059669', flexShrink: 0, marginTop: 1 }} />
-                            <div>
-                              <strong style={{ display: 'block', fontSize: 10.5, textTransform: 'uppercase', color: '#047857' }}>Current Sprint Status:</strong>
-                              <span>{currentStatusNote}</span>
-                            </div>
-                          </div>
-                        )}
                         {project?.summaryLastUpdatedAt && (
                           <div style={{ fontSize: 10.5, color: '#8b5cf6', fontFamily: 'monospace', textAlign: 'right' }}>
                             Updated by team: {new Date(project.summaryLastUpdatedAt).toLocaleDateString()}
@@ -825,7 +1139,7 @@ export default function TeamWorkspacePage({
                     ) : (
                       <div style={{ padding: '14px', background: '#fff', borderRadius: 8, border: '1px dashed #d8b4fe', textAlign: 'center' }}>
                         <p style={{ margin: 0, fontSize: 12, color: '#6b21a8' }}>
-                          Your team has not documented your custom project summary or live sprint status yet.
+                          Your team has not documented your custom technical architecture summary yet.
                         </p>
                         <button
                           onClick={handleOpenTeamModal}
@@ -841,7 +1155,7 @@ export default function TeamWorkspacePage({
                             cursor: 'pointer'
                           }}
                         >
-                          + Write Project Summary & Status
+                          + Write Project Brief
                         </button>
                       </div>
                     )}
@@ -1167,17 +1481,91 @@ export default function TeamWorkspacePage({
                   </div>
                 )}
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                {/* Live Webhook Traced Preview (if any events exist) */}
+                {gitEvents && gitEvents.length > 0 && (
+                  <div style={{
+                    marginTop: 14,
+                    padding: '12px 16px',
+                    borderRadius: 12,
+                    background: '#ffffff',
+                    border: '1.5px solid #c7d2fe',
+                    boxShadow: '0 2px 8px rgba(99,102,241,0.06)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#1e1b4b' }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+                        <span>Live Telemetry: {gitSummary?.totalCommits || gitEvents.length} Commits Traced</span>
+                      </div>
+                      <button
+                        onClick={() => setActiveNav('repository')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#4338ca',
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4
+                        }}
+                      >
+                        View Full Telemetry Stream <ArrowRight style={{ width: 13, height: 13 }} />
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 12 }}>
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                        background: '#f1f5f9',
+                        padding: '3px 8px',
+                        borderRadius: 6,
+                        color: '#334155',
+                        fontWeight: 600
+                      }}>
+                        <GitCommit style={{ width: 12, height: 12, color: '#6366f1' }} />
+                        {(gitEvents[0]?.commitSha || gitSummary?.lastCommitSha || '').slice(0, 7) || 'HEAD'}
+                      </div>
+                      <div style={{ color: '#0f172a', fontWeight: 600, flex: 1, minWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        "{gitEvents[0]?.commitMessage || 'Latest commit'}"
+                      </div>
+                      <div style={{ color: '#64748b', fontSize: 11 }}>
+                        by <strong>{gitEvents[0]?.authorName || 'Contributor'}</strong>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
                   <div style={{ fontSize: 11.5, color: '#94a3b8' }}>
                     Works with GitHub, GitLab, Bitbucket and any Git host that supports webhooks.
                   </div>
-                  <button
-                    className="twp-regen-btn"
-                    onClick={handleTestWebhookPing}
-                  >
-                    <Activity style={{ width: 11, height: 11 }} />
-                    Verify Webhook Ping
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      className="twp-regen-btn"
+                      onClick={handleSimulateGitPush}
+                      disabled={isSimulatingGit}
+                      title="Simulate realistic Git commit push via webhook"
+                      style={{ background: '#f8fafc', border: '1px solid #cbd5e1' }}
+                    >
+                      {isSimulatingGit ? (
+                        <><RefreshCw style={{ width: 11, height: 11 }} className="animate-spin" /> Simulating...</>
+                      ) : (
+                        <><Sparkles style={{ width: 11, height: 11, color: '#6366f1' }} /> Simulate Push</>
+                      )}
+                    </button>
+                    <button
+                      className="twp-regen-btn"
+                      onClick={handleTestWebhookPing}
+                    >
+                      <Activity style={{ width: 11, height: 11 }} />
+                      Verify Webhook Ping
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1331,25 +1719,51 @@ export default function TeamWorkspacePage({
             </div>
           )}
 
-          {/* ════ REPOSITORY ════ */}
+          {/* ════ REPOSITORY & LIVE WEBHOOK TELEMETRY ════ */}
           {activeNav === 'repository' && (
             <div className="twp-fade-up">
               <div className="twp-section-header">
                 <div>
-                  <div className="twp-section-title">Repository & Code Tracking</div>
-                  <div className="twp-section-sub">GitHub integration, commit tracking, and branch telemetry.</div>
+                  <div className="twp-section-title">Git Webhook Telemetry & Code Stream</div>
+                  <div className="twp-section-sub">Real-time commit ingestion, branch telemetry, and contributor tracking via webhook.</div>
                 </div>
-                <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    className="twp-btn-ghost"
+                    onClick={handleSimulateGitPush}
+                    disabled={isSimulatingGit}
+                    style={{ background: '#f8fafc', border: '1px solid #cbd5e1', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    title="Simulate realistic Git commit push via webhook"
+                  >
+                    {isSimulatingGit ? (
+                      <><RefreshCw style={{ width: 14, height: 14 }} className="animate-spin" /> Ingesting Test Push...</>
+                    ) : (
+                      <><Sparkles style={{ width: 14, height: 14, color: '#6366f1' }} /> Simulate Test Push</>
+                    )}
+                  </button>
+
+                  <button
+                    className="twp-btn-ghost"
+                    onClick={fetchGitEvents}
+                    disabled={isLoadingGitEvents}
+                    style={{ background: '#f8fafc', border: '1px solid #cbd5e1', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    title="Refresh webhook telemetry events"
+                  >
+                    <RefreshCw style={{ width: 14, height: 14, color: '#475569' }} className={isLoadingGitEvents ? 'animate-spin' : ''} />
+                    Refresh Stream
+                  </button>
+
                   <button className="twp-btn-ghost" onClick={handleOpenTeamModal}>
                     <Edit3 style={{ width: 14, height: 14 }} /> Edit Repo Link
                   </button>
+
                   {githubRepoUrl && (
                     <a
                       href={githubRepoUrl.startsWith('http') ? githubRepoUrl : `https://${githubRepoUrl}`}
                       target="_blank"
                       rel="noreferrer"
                       className="twp-btn-primary"
-                      style={{ textDecoration: 'none' }}
+                      style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     >
                       <ExternalLink style={{ width: 14, height: 14 }} />
                       Open on GitHub
@@ -1358,7 +1772,27 @@ export default function TeamWorkspacePage({
                 </div>
               </div>
 
-              {/* Same featured repo card */}
+              {/* Simulation feedback banner */}
+              {gitSimFeedback && (
+                <div style={{
+                  marginBottom: 16,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  background: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  color: '#166534',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8
+                }}>
+                  <CheckCircle2 style={{ width: 16, height: 16, color: '#22c55e' }} />
+                  {gitSimFeedback}
+                </div>
+              )}
+
+              {/* Featured repo & webhook tracking configuration */}
               <div className="twp-repo-card">
                 <div className="twp-repo-header">
                   <div className="twp-repo-header-left">
@@ -1366,44 +1800,40 @@ export default function TeamWorkspacePage({
                       <Link2 style={{ width: 22, height: 22, color: '#fff' }} />
                     </div>
                     <div>
-                      <div className="twp-repo-title">Live Webhook Tracking URL</div>
-                      <div className="twp-repo-subtitle">Auto-monitors commits, push activity, and branch telemetry in real time.</div>
+                      <div className="twp-repo-title">Live Git Webhook Endpoint</div>
+                      <div className="twp-repo-subtitle">Auto-ingests commits, code diffs, and branch telemetry whenever code is pushed.</div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <div className={`twp-conn-status ${repoConnected ? 'twp-conn-status--connected' : 'twp-conn-status--disconnected'}`}>
-                      <span className={`twp-conn-dot ${repoConnected ? 'twp-conn-dot--green' : 'twp-conn-dot--amber'}`} />
-                      {repoConnected ? 'Connected · Active' : 'Not Connected'}
+                    <div className={`twp-conn-status ${(gitEvents.length > 0 || gitSummary?.isConnected) ? 'twp-conn-status--connected' : 'twp-conn-status--disconnected'}`}>
+                      <span className={`twp-conn-dot ${(gitEvents.length > 0 || gitSummary?.isConnected) ? 'twp-conn-dot--green' : 'twp-conn-dot--amber'}`} />
+                      {(gitEvents.length > 0 || gitSummary?.isConnected) ? 'Webhook Ingestion Active' : 'Awaiting First Push'}
                     </div>
-                    <button
-                      className="twp-btn-ghost"
-                      style={{ fontSize: 11, padding: '4px 10px', background: '#fff', border: '1px solid #cbd5e1' }}
-                      onClick={handleTestWebhookPing}
-                      disabled={isPingingWebhook}
-                    >
-                      {isPingingWebhook ? (
-                        <><RefreshCw style={{ width: 12, height: 12 }} className="animate-spin" /> Pinging...</>
-                      ) : (
-                        <><Activity style={{ width: 12, height: 12, color: '#10b981' }} /> Test Ping</>
-                      )}
-                    </button>
                   </div>
                 </div>
 
-                {webhookPingResult && (
-                  <div style={{
-                    marginBottom: 12,
-                    padding: '8px 12px',
-                    borderRadius: 8,
-                    background: webhookPingResult.success ? '#f0fdf4' : '#fef2f2',
-                    border: `1px solid ${webhookPingResult.success ? '#bbf7d0' : '#fecaca'}`,
-                    color: webhookPingResult.success ? '#15803d' : '#b91c1c',
-                    fontSize: 12,
-                    fontWeight: 600
-                  }}>
-                    {webhookPingResult.message}
-                  </div>
-                )}
+                {/* Tunnel domain badge / setter */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, fontSize: 11 }}>
+                  <span style={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: tunnelBaseUrl ? '#10b981' : '#94a3b8' }} />
+                    {tunnelBaseUrl ? <>Public Tunnel Active: <strong style={{ color: '#0f172a' }}>{tunnelBaseUrl}</strong></> : 'Using Localhost (Default)'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleOpenTeamModal}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#6366f1',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontSize: 11,
+                      padding: 0
+                    }}
+                  >
+                    {tunnelBaseUrl ? 'Change Tunnel URL' : '⚙️ Set ngrok / Tunnel URL'}
+                  </button>
+                </div>
 
                 <div className="twp-url-row">
                   <div className="twp-url-field">
@@ -1423,17 +1853,17 @@ export default function TeamWorkspacePage({
                   {showInstructions
                     ? <ChevronDown style={{ width: 14, height: 14 }} />
                     : <ChevronRight style={{ width: 14, height: 14 }} />}
-                  {showInstructions ? 'Hide' : 'Show'} Setup Instructions
+                  {showInstructions ? 'Hide' : 'Show'} GitHub Webhook Setup Guide
                 </button>
 
                 {showInstructions && (
                   <div className="twp-instructions-body">
                     {[
                       { step: 'Go to your GitHub repository → Settings → Webhooks → Add webhook.' },
-                      { step: <>In the <strong>Payload URL</strong> field, paste the tracking URL: <code>{trackingUrl}</code></> },
+                      { step: <>In the <strong>Payload URL</strong> field, paste your tracking URL: <code>{trackingUrl}</code></> },
                       { step: <>Set <strong>Content type</strong> to <code>application/json</code>.</> },
                       { step: <>Under <strong>Which events</strong>, select <code>Just the push event</code>.</> },
-                      { step: 'Click Save webhook to start automated commit monitoring.' },
+                      { step: 'Click Add webhook. Every commit pushed by team members will be traced here automatically.' },
                     ].map((item, i) => (
                       <div key={i} className="twp-instruction-step">
                         <div className="twp-step-num">{i + 1}</div>
@@ -1444,23 +1874,331 @@ export default function TeamWorkspacePage({
                 )}
               </div>
 
-              {/* Stats */}
-              {project.githubStats && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-                  {[
-                    { label: 'Total Commits', val: project.githubStats.commitsCount, Icon: GitCommit, color: '#6366f1' },
-                    { label: 'Contributors',  val: project.githubStats.contributors,  Icon: Users,     color: '#8b5cf6' },
-                    { label: 'GitHub Stars',  val: project.githubStats.stars,         Icon: Star,      color: '#f59e0b' },
-                    { label: 'Branch',        val: 'main',                             Icon: GitBranch, color: '#22c55e' },
-                  ].map(s => (
-                    <div key={s.label} className="twp-card" style={{ textAlign: 'center' }}>
-                      <s.Icon style={{ width: 20, height: 20, color: s.color, margin: '0 auto 8px' }} />
-                      <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.04em' }}>{s.val}</div>
-                      <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{s.label}</div>
-                    </div>
-                  ))}
+              {/* 4 Quick Telemetry Metrics */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 20 }}>
+                <div className="twp-card" style={{ padding: '16px 20px', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Commits Traced</span>
+                    <GitCommit style={{ width: 18, height: 18, color: '#6366f1' }} />
+                  </div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.03em' }}>
+                    {gitSummary?.totalCommits ?? gitEvents.length}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#10b981', fontWeight: 600, marginTop: 4 }}>
+                    Live Webhook Ingested
+                  </div>
+                </div>
+
+                <div className="twp-card" style={{ padding: '16px 20px', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Pull Requests</span>
+                    <GitFork style={{ width: 18, height: 18, color: '#8b5cf6' }} />
+                  </div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.03em' }}>
+                    {gitSummary?.totalPullRequests ?? 0}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    PR Telemetry Stream
+                  </div>
+                </div>
+
+                <div className="twp-card" style={{ padding: '16px 20px', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Active Contributors</span>
+                    <Users style={{ width: 18, height: 18, color: '#0ea5e9' }} />
+                  </div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.03em' }}>
+                    {gitSummary?.contributors?.length ?? (gitEvents.length > 0 ? 1 : 0)}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    Unique authors tracked
+                  </div>
+                </div>
+
+                <div className="twp-card" style={{ padding: '16px 20px', borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Latest Ingested Commit</span>
+                    <Radio style={{ width: 18, height: 18, color: '#22c55e' }} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
+                      {gitSummary?.lastCommitSha
+                        ? gitSummary.lastCommitSha.slice(0, 7)
+                        : (gitEvents[0]?.commitSha ? gitEvents[0].commitSha.slice(0, 7) : 'None')}
+                    </span>
+                    {(gitSummary?.lastCommitSha || gitEvents[0]?.commitSha) && (
+                      <button
+                        onClick={() => handleCopySha(gitSummary?.lastCommitSha || gitEvents[0]?.commitSha)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '2px 4px',
+                          cursor: 'pointer',
+                          color: copiedCommitSha ? '#16a34a' : '#64748b'
+                        }}
+                        title="Copy commit SHA"
+                      >
+                        {copiedCommitSha ? <Check style={{ width: 14, height: 14 }} /> : <Copy style={{ width: 14, height: 14 }} />}
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    {gitSummary?.lastEventAt ? new Date(gitSummary.lastEventAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'No events yet'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Contributor Activity Ledger */}
+              {gitSummary?.contributors && gitSummary.contributors.length > 0 && (
+                <div className="twp-card" style={{ padding: 20, borderRadius: 16, marginBottom: 20, border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Users style={{ width: 16, height: 16, color: '#6366f1' }} />
+                    Team Contributor Telemetry Ledger
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+                    {gitSummary.contributors.map((c, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: 10,
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
+                            {c.name || 'Anonymous Contributor'}
+                          </div>
+                          {c.username && (
+                            <div style={{ fontSize: 11, color: '#64748b' }}>
+                              @{c.username}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{
+                            padding: '3px 8px',
+                            background: '#eff6ff',
+                            color: '#2563eb',
+                            borderRadius: 6,
+                            fontWeight: 700,
+                            fontSize: 12
+                          }}>
+                            {c.commitsCount || 0} commits
+                          </span>
+                          {(c.linesAdded > 0 || c.linesRemoved > 0) && (
+                            <div style={{ fontSize: 10, color: '#64748b', marginTop: 4, fontFamily: 'monospace' }}>
+                              <span style={{ color: '#16a34a' }}>+{c.linesAdded || 0}</span> / <span style={{ color: '#dc2626' }}>-{c.linesRemoved || 0}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
+
+              {/* Chronological Commit Telemetry Stream */}
+              <div className="twp-card" style={{ padding: 20, borderRadius: 16, border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      background: '#ede9fe',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#6366f1'
+                    }}>
+                      <GitCommit style={{ width: 18, height: 18 }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
+                        Traced Webhook Commits & Activity Stream
+                      </div>
+                      <div style={{ fontSize: 11.5, color: '#64748b' }}>
+                        Chronological record of code changes ingested through the webhook endpoint
+                      </div>
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    padding: '4px 10px',
+                    borderRadius: 14,
+                    background: gitEvents.length > 0 ? '#f0fdf4' : '#f8fafc',
+                    color: gitEvents.length > 0 ? '#166534' : '#64748b',
+                    border: '1px solid',
+                    borderColor: gitEvents.length > 0 ? '#bbf7d0' : '#e2e8f0'
+                  }}>
+                    {gitEvents.length} events logged
+                  </span>
+                </div>
+
+                {isLoadingGitEvents ? (
+                  <div style={{ padding: '40px 0', textAlign: 'center', color: '#64748b' }}>
+                    <RefreshCw style={{ width: 22, height: 22, margin: '0 auto 10px' }} className="animate-spin" />
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>Loading Git telemetry stream...</div>
+                  </div>
+                ) : gitEvents.length === 0 ? (
+                  <div style={{
+                    padding: '44px 20px',
+                    textAlign: 'center',
+                    background: '#f8fafc',
+                    borderRadius: 12,
+                    border: '1.5px dashed #cbd5e1'
+                  }}>
+                    <GitCommit style={{ width: 36, height: 36, color: '#94a3b8', margin: '0 auto 12px' }} />
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>
+                      No Commits Traced Yet via Webhook
+                    </div>
+                    <div style={{ fontSize: 12.5, color: '#64748b', maxWidth: 460, margin: '0 auto 16px', lineHeight: 1.5 }}>
+                      When team members push code to GitHub through the webhook URL, commits and file changes stream here live. You can also test the tracing pipeline right now!
+                    </div>
+                    <button
+                      className="twp-btn-primary"
+                      onClick={handleSimulateGitPush}
+                      disabled={isSimulatingGit}
+                      style={{ margin: '0 auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      {isSimulatingGit ? (
+                        <><RefreshCw style={{ width: 14, height: 14 }} className="animate-spin" /> Simulating Push...</>
+                      ) : (
+                        <><Sparkles style={{ width: 14, height: 14 }} /> Simulate Realistic Test Push</>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {gitEvents.map((evt, idx) => {
+                      const sha = evt.commitSha || evt.commitHash || (evt.payload?.head_commit?.id) || '';
+                      const message = evt.commitMessage || evt.message || evt.payload?.head_commit?.message || 'Git push update';
+                      const author = evt.authorName || evt.author?.name || evt.authorUsername || evt.author?.githubUsername || 'Team Member';
+                      const branch = evt.branch || evt.rawPayloadSummary?.branch || 'main';
+                      const timestamp = evt.createdAt || evt.receivedAt || evt.timestamp;
+
+                      const addedCount = typeof evt.filesAddedCount === 'number' ? evt.filesAddedCount : (Array.isArray(evt.filesAdded) ? evt.filesAdded.length : (evt.filesChanged?.added || 0));
+                      const modifiedCount = typeof evt.filesModifiedCount === 'number' ? evt.filesModifiedCount : (Array.isArray(evt.filesModified) ? evt.filesModified.length : (evt.filesChanged?.modified || 0));
+                      const removedCount = typeof evt.filesRemovedCount === 'number' ? evt.filesRemovedCount : (Array.isArray(evt.filesRemoved) ? evt.filesRemoved.length : (evt.filesChanged?.removed || 0));
+                      const fileNames = Array.isArray(evt.filesAdded) ? [...evt.filesAdded, ...(evt.filesModified || []), ...(evt.filesRemoved || [])] : [];
+
+                      return (
+                        <div
+                          key={evt._id || idx}
+                          style={{
+                            padding: '14px 16px',
+                            borderRadius: 12,
+                            background: '#ffffff',
+                            border: '1px solid #e2e8f0',
+                            transition: 'border-color 0.2s, box-shadow 0.2s',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            justifyContent: 'space-between',
+                            gap: 14,
+                            flexWrap: 'wrap'
+                          }}
+                        >
+                          <div style={{ flex: 1, minWidth: 260 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                              {sha && (
+                                <button
+                                  onClick={() => handleCopySha(sha)}
+                                  title="Click to copy commit SHA"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 5,
+                                    fontFamily: 'monospace',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    background: '#f1f5f9',
+                                    border: '1px solid #cbd5e1',
+                                    borderRadius: 6,
+                                    padding: '2px 7px',
+                                    color: copiedCommitSha === sha ? '#16a34a' : '#334155',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <GitCommit style={{ width: 12, height: 12, color: '#6366f1' }} />
+                                  {sha.slice(0, 7)}
+                                  {copiedCommitSha === sha ? <Check style={{ width: 11, height: 11 }} /> : <Copy style={{ width: 11, height: 11 }} />}
+                                </button>
+                              )}
+
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                fontSize: 11,
+                                fontWeight: 600,
+                                padding: '2px 7px',
+                                borderRadius: 6,
+                                background: '#eff6ff',
+                                color: '#2563eb'
+                              }}>
+                                <GitBranch style={{ width: 11, height: 11 }} />
+                                {branch}
+                              </span>
+
+                              <span style={{ fontSize: 11.5, color: '#64748b' }}>
+                                by <strong style={{ color: '#0f172a' }}>{author}</strong>
+                              </span>
+
+                              {timestamp && (
+                                <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                                  • {new Date(timestamp).toLocaleString([], {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              )}
+                            </div>
+
+                            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f172a', lineHeight: 1.4, marginBottom: 8 }}>
+                              {message}
+                            </div>
+
+                            {/* Files changed chips */}
+                            {(addedCount > 0 || modifiedCount > 0 || removedCount > 0) && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11 }}>
+                                {addedCount > 0 && (
+                                  <span style={{ color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '1px 6px', borderRadius: 4, fontWeight: 600 }}>
+                                    +{addedCount} added
+                                  </span>
+                                )}
+                                {modifiedCount > 0 && (
+                                  <span style={{ color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: 4, fontWeight: 600 }}>
+                                    ~{modifiedCount} modified
+                                  </span>
+                                )}
+                                {removedCount > 0 && (
+                                  <span style={{ color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', padding: '1px 6px', borderRadius: 4, fontWeight: 600 }}>
+                                    -{removedCount} removed
+                                  </span>
+                                )}
+                                {fileNames.length > 0 && (
+                                  <span style={{ color: '#64748b', fontSize: 10.5, fontFamily: 'monospace' }}>
+                                    {fileNames.slice(0, 3).join(', ')}
+                                    {fileNames.length > 3 ? ` +${fileNames.length - 3} more` : ''}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -1470,11 +2208,11 @@ export default function TeamWorkspacePage({
               <div className="twp-section-header">
                 <div>
                   <div className="twp-section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <GitFork style={{ width: 18, height: 18, color: '#a78bfa' }} />
-                    <span>Versioned Continuity Protocol & Handover Dossier</span>
+                    <GitFork style={{ width: 18, height: 18, color: '#4F46E5' }} />
+                    <span>Versioned Continuity Protocol & Handover History</span>
                   </div>
                   <div className="twp-section-sub">
-                    Institutional lineage preserving deliverables, technical debt, and codebase state across academic batches.
+                    Institutional lineage tracking deliverables, technical debt, and team transitions across academic batches.
                   </div>
                 </div>
                 {onTriggerHandover && (
@@ -1485,152 +2223,422 @@ export default function TeamWorkspacePage({
                 )}
               </div>
 
-              {/* Lineage Transition Ribbon */}
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(15,23,42,0.85) 0%, rgba(30,27,75,0.85) 100%)',
-                border: '1px solid rgba(139,92,246,0.3)',
-                borderRadius: 16,
-                padding: '22px 26px',
-                marginBottom: 20,
-                display: 'grid',
-                gridTemplateColumns: '1fr auto 1fr',
-                alignItems: 'center',
-                gap: 16
-              }}>
-                <div>
-                  <span style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', color: '#f87171', letterSpacing: '0.06em' }}>
-                    Outgoing Version v{(project.currentVersionNumber || 2) - 1}.0 (Archived)
-                  </span>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 3 }}>
-                    {project.previousTeam?.name || handoverRecord?.fromTeamName || 'Alpha Visionary Labs'}
-                  </div>
-                  <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>
-                    Discontinued at <strong>{project.previousTeam?.discontinuedAt || project.progress || 45}%</strong> completion • {handoverRecord?.discontinuationReason || 'Internship graduation'}
-                  </div>
-                </div>
-
-                <div style={{ textAlign: 'center', color: '#a78bfa', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                  <span style={{ fontSize: 9.5, fontWeight: 800, background: 'rgba(139,92,246,0.25)', color: '#ddd6fe', padding: '2px 8px', borderRadius: 9999, border: '1px solid rgba(167,139,250,0.4)', textTransform: 'uppercase' }}>
-                    Automated Protocol
-                  </span>
-                  <GitFork style={{ width: 22, height: 22, strokeWidth: 2.2 }} />
-                  <span style={{ fontSize: 10.5, fontWeight: 700, color: '#c4b5fd' }}>Handover Engine</span>
-                </div>
-
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', color: '#34d399', letterSpacing: '0.06em' }}>
-                    Continuation Version v{project.currentVersionNumber || 2}.0 (Active)
-                  </span>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 3 }}>
-                    {project.team?.name || 'Team Gamma (Continuation)'}
-                  </div>
-                  <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>
-                    Resumed from <strong>{project.previousTeam?.discontinuedAt || project.progress || 45}%</strong> baseline • Access code: <code style={{ color: '#a78bfa' }}>{project.teamAccessCode || 'NEXUS-G789'}</code>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2-Column Split: Deliverables vs Debt & Specs */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 20 }}>
-                
-                {/* Column 1: Deliverables vs Debt */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  
-                  {/* Verified Deliverables Card */}
-                  <div className="twp-card" style={{ border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(6,78,59,0.1)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 7 }}>
-                        <CheckCircle2 style={{ width: 16, height: 16 }} />
-                        <span>Verified Deliverables (Preserved v1.0)</span>
-                      </div>
-                      <span style={{ fontSize: 10, fontWeight: 800, background: 'rgba(16,185,129,0.2)', color: '#34d399', padding: '2px 7px', borderRadius: 4 }}>
-                        3 Locked
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {(handoverRecord?.completedModules || [
-                        'FaceNet embedding model (94.2% validation accuracy)',
-                        'Student profile photo enrollment pipeline',
-                        'PostgreSQL vector database schema & indexing'
-                      ]).map((item, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5, color: '#d1fae5', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
-                          <Check style={{ width: 14, height: 14, color: '#34d399', flexShrink: 0 }} />
-                          <span>{item}</span>
-                        </div>
-                      ))}
-                    </div>
+              {!hasHandoverHistory ? (
+                /* ── EMPTY STATE FOR FOUNDING / ORIGINAL TEAM ── */
+                <div style={{
+                  background: '#FFFFFF',
+                  border: '1.5px dashed #CBD5E1',
+                  borderRadius: 16,
+                  padding: '52px 32px',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 16,
+                  boxShadow: '0 2px 10px rgba(15, 23, 42, 0.03)'
+                }}>
+                  <div style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 20,
+                    background: '#EFF6FF',
+                    border: '1.5px solid #BFDBFE',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#2563EB',
+                    boxShadow: '0 6px 16px rgba(37, 99, 235, 0.12)'
+                  }}>
+                    <GitFork style={{ width: 30, height: 30 }} />
                   </div>
 
-                  {/* Technical Debt Backlog Card */}
-                  <div className="twp-card" style={{ border: '1px solid rgba(245,158,11,0.3)', background: 'rgba(120,53,15,0.1)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 7 }}>
-                        <AlertTriangle style={{ width: 16, height: 16 }} />
-                        <span>Inherited Technical Debt (v2.0 Backlog)</span>
-                      </div>
-                      <span style={{ fontSize: 10, fontWeight: 800, background: 'rgba(245,158,11,0.2)', color: '#fbbf24', padding: '2px 7px', borderRadius: 4 }}>
-                        Pending Resolution
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {(handoverRecord?.pendingModules || [
-                        'Anti-Spoofing & Liveness Filter (RGB camera spoof bug)',
-                        'Edge inference optimization (TensorRT on Jetson GPU)',
-                        'Faculty Attendance CSV Export module'
-                      ]).map((item, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5, color: '#fef3c7', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
-                          <AlertTriangle style={{ width: 14, height: 14, color: '#fbbf24', flexShrink: 0 }} />
-                          <span>{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Column 2: Repository, Lab, Faculty Notes */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  
-                  {/* Codebase & Hardware Vault */}
-                  <div className="twp-card">
-                    <div style={{ fontSize: 12.5, fontWeight: 800, color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <FolderGit2 style={{ width: 15, height: 15 }} />
-                      <span>Codebase Snapshot & Hardware Lab</span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
-                      <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Frozen Commit SHA:</span>
-                        <div style={{ fontFamily: 'monospace', fontWeight: 700, color: '#fff', marginTop: 2 }}>
-                          5fb748c (tag: v1.0-handover-archive)
-                        </div>
-                      </div>
-
-                      <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Physical Hardware Location:</span>
-                        <div style={{ fontWeight: 600, color: '#fff', marginTop: 2 }}>
-                          Embedded Systems Lab 3, Workstation #4 (Locker 4)
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Faculty Directive */}
-                  <div className="twp-card" style={{ border: '1px solid rgba(129,140,248,0.25)', background: 'rgba(99,102,241,0.08)' }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: '#c7d2fe', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <FileText style={{ width: 14, height: 14 }} />
-                      <span>Faculty Guide Directive • Prof. Vikram Malhotra</span>
-                    </div>
-                    <p style={{ margin: 0, fontSize: 12, color: '#e2e8f0', fontStyle: 'italic', lineHeight: 1.5 }}>
-                      "{handoverRecord?.facultyGuidanceNotes || 'Hardware kit stored in CS Lab 3, Locker #4. Base embedding model verified. Do not rebuild from scratch — focus directly on liveness filtering and Jetson edge optimization.'}"
+                  <div style={{ maxWidth: 560 }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      background: '#DCFCE7',
+                      color: '#15803D',
+                      border: '1px solid #BBF7D0',
+                      padding: '3px 12px',
+                      borderRadius: 9999,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em'
+                    }}>
+                      <CheckCircle2 style={{ width: 13, height: 13 }} />
+                      Founding Version v1.0 • Original Lifecycle
+                    </span>
+                    <h3 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', margin: '14px 0 8px 0' }}>
+                      No Handover History Yet
+                    </h3>
+                    <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.6, margin: 0 }}>
+                      This project is currently active under its <strong>original founding student team</strong> ({project.team?.name || teamLead?.name || 'Assigned Student Cohort'}). No prior team handovers, discontinuation snapshots, or predecessor packages exist.
                     </p>
                   </div>
 
-                </div>
+                  {/* Founding Project Status Metadata Strip */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: 14,
+                    width: '100%',
+                    maxWidth: 720,
+                    marginTop: 8
+                  }}>
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '14px 18px', borderRadius: 12, textAlign: 'left' }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Lineage Stage</span>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginTop: 4 }}>v1.0 (Initial Creation)</div>
+                    </div>
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '14px 18px', borderRadius: 12, textAlign: 'left' }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Academic Year</span>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginTop: 4 }}>{project.academicYear || '2025-2026'}</div>
+                    </div>
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '14px 18px', borderRadius: 12, textAlign: 'left' }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Continuity Status</span>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#16A34A', marginTop: 4 }}>Original Founding Team</div>
+                    </div>
+                  </div>
 
-              </div>
+                  <div style={{
+                    background: '#F1F5F9',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: 12,
+                    padding: '14px 20px',
+                    maxWidth: 720,
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 12,
+                    marginTop: 4
+                  }}>
+                    <Sparkles style={{ width: 17, height: 17, color: '#6366F1', flexShrink: 0, marginTop: 2 }} />
+                    <div style={{ fontSize: 12.5, color: '#334155', lineHeight: 1.55 }}>
+                      <strong>How does Handover History work?</strong> When a university project discontinues or transitions at the end of an academic semester, ProjectNexus generates an immutable version packet (v1.0 → v2.0). If this project is ever transferred to a successor team, its full deliverable lineage and technical debt backlog will be archived and visible here.
+                    </div>
+                  </div>
+
+                  {onTriggerHandover && (
+                    <button
+                      onClick={onTriggerHandover}
+                      style={{
+                        marginTop: 10,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '10px 20px',
+                        background: '#FFFFFF',
+                        color: '#4F46E5',
+                        border: '1.5px solid #C7D2FE',
+                        borderRadius: 10,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 8px rgba(99, 102, 241, 0.1)',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <GitFork style={{ width: 15, height: 15 }} />
+                      <span>Initiate Handover Protocol (Discontinue & Transfer)</span>
+                    </button>
+                  )}
+                </div>
+              ) : (
+                /* ── FULL HANDOVER HISTORY FOR CONTINUATION TEAMS ── */
+                <>
+                  {/* Lineage Transition Ribbon */}
+                  <div style={{
+                    background: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: 16,
+                    padding: '24px 28px',
+                    marginBottom: 20,
+                    display: 'grid',
+                    gridTemplateColumns: '1fr auto 1fr',
+                    alignItems: 'center',
+                    gap: 20,
+                    boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)'
+                  }}>
+                    <div>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        color: '#B91C1C',
+                        background: '#FEE2E2',
+                        border: '1px solid #FECACA',
+                        padding: '3px 10px',
+                        borderRadius: 9999,
+                        letterSpacing: '0.04em'
+                      }}>
+                        Outgoing Version v{(project.currentVersionNumber || 2) - 1}.0 (Archived)
+                      </span>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', marginTop: 8 }}>
+                        {project.previousTeam?.name || handoverRecord?.fromTeamName || 'Team Alpha (Original)'}
+                      </div>
+                      <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4, lineHeight: 1.5 }}>
+                        Discontinued at <strong style={{ color: '#0F172A' }}>{project.previousTeam?.discontinuedAt || project.progress || 45}%</strong> completion • {handoverRecord?.discontinuationReason || 'Lead transferred institution; remaining members assigned to research.'}
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '0 10px' }}>
+                      <span style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        background: '#EEF2FF',
+                        color: '#4338CA',
+                        padding: '3px 10px',
+                        borderRadius: 9999,
+                        border: '1px solid #C7D2FE',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em'
+                      }}>
+                        Automated Protocol
+                      </span>
+                      <div style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 12,
+                        background: 'linear-gradient(135deg, #2563EB, #4F46E5)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#FFFFFF',
+                        boxShadow: '0 4px 14px rgba(37, 99, 235, 0.25)'
+                      }}>
+                        <GitFork style={{ width: 22, height: 22, strokeWidth: 2.2 }} />
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#2563EB' }}>Handover Engine</span>
+                    </div>
+
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        color: '#15803D',
+                        background: '#DCFCE7',
+                        border: '1px solid #BBF7D0',
+                        padding: '3px 10px',
+                        borderRadius: 9999,
+                        letterSpacing: '0.04em'
+                      }}>
+                        Continuation Version v{project.currentVersionNumber || 2}.0 (Active)
+                      </span>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', marginTop: 8 }}>
+                        {project.team?.name || 'Team Gamma (Continuation)'}
+                      </div>
+                      <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4, lineHeight: 1.5 }}>
+                        Resumed from <strong style={{ color: '#0F172A' }}>{project.previousTeam?.discontinuedAt || project.progress || 45}%</strong> baseline • Access code: <code style={{
+                          color: '#1E293B',
+                          background: '#F1F5F9',
+                          border: '1px solid #CBD5E1',
+                          padding: '2px 8px',
+                          borderRadius: 6,
+                          fontWeight: 700,
+                          fontFamily: 'monospace'
+                        }}>{project.teamAccessCode || 'NEXUS-CEN3'}</code>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2-Column Split: Deliverables vs Debt & Specs */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 20 }}>
+                    
+                    {/* Column 1: Deliverables vs Debt */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                      
+                      {/* Verified Deliverables Card */}
+                      <div style={{
+                        background: '#FFFFFF',
+                        border: '1.5px solid #86EFAC',
+                        borderTop: '4px solid #10B981',
+                        borderRadius: 14,
+                        padding: '22px',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: '#065F46', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <CheckCircle2 style={{ width: 17, height: 17, color: '#059669' }} />
+                            <span>Verified Deliverables (Preserved v1.0)</span>
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, background: '#DCFCE7', color: '#166534', border: '1px solid #BBF7D0', padding: '3px 9px', borderRadius: 6 }}>
+                            3 Locked
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {(handoverRecord?.completedModules || [
+                            'Core Project Requirements Specification & Database Schema (PostgreSQL/MongoDB)',
+                            'Face Enrollment Frontend UI (Student profile picture upload & preprocessing)',
+                            'Base PyTorch FaceNet embedding model integration (accuracy ~94%)',
+                            'Department Classroom Layout & Camera Hardware Specification'
+                          ]).map((item, idx) => (
+                            <div key={idx} style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 10,
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: '#064E3B',
+                              padding: '10px 14px',
+                              background: '#F0FDF4',
+                              borderRadius: 8,
+                              border: '1px solid #BBF7D0'
+                            }}>
+                              <div style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: '50%',
+                                background: '#DCFCE7',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                              }}>
+                                <Check style={{ width: 14, height: 14, color: '#059669', strokeWidth: 2.5 }} />
+                              </div>
+                              <span>{item}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Technical Debt Backlog Card */}
+                      <div style={{
+                        background: '#FFFFFF',
+                        border: '1.5px solid #FDE68A',
+                        borderTop: '4px solid #F59E0B',
+                        borderRadius: 14,
+                        padding: '22px',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <AlertTriangle style={{ width: 17, height: 17, color: '#D97706' }} />
+                            <span>Inherited Technical Debt (v2.0 Backlog)</span>
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, background: '#FEF3C7', color: '#B45309', border: '1px solid #FDE68A', padding: '3px 9px', borderRadius: 6 }}>
+                            Pending Resolution
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {(handoverRecord?.pendingModules || [
+                            'Anti-Spoofing & Liveness Detection (Prevents photo/screen spoofing)',
+                            'Edge optimization (TensorRT/ONNX Runtime for real-time 15+ FPS)',
+                            'Faculty Attendance Review Dashboard & PDF Generation',
+                            'Live RTSP Video Stream Ingestion Pipeline'
+                          ]).map((item, idx) => (
+                            <div key={idx} style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 10,
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: '#78350F',
+                              padding: '10px 14px',
+                              background: '#FFFBEB',
+                              borderRadius: 8,
+                              border: '1px solid #FDE68A'
+                            }}>
+                              <div style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: '50%',
+                                background: '#FEF3C7',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                              }}>
+                                <AlertTriangle style={{ width: 13, height: 13, color: '#D97706', strokeWidth: 2.5 }} />
+                              </div>
+                              <span>{item}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Column 2: Repository, Lab, Faculty Notes */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                      
+                      {/* Codebase & Hardware Vault */}
+                      <div style={{
+                        background: '#FFFFFF',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: 14,
+                        padding: '22px',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+                      }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#3730A3', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <FolderGit2 style={{ width: 16, height: 16, color: '#4F46E5' }} />
+                          <span>Codebase Snapshot & Hardware Lab</span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 12.5 }}>
+                          <div style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                              Frozen Commit SHA:
+                            </span>
+                            <div style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0F172A', marginTop: 4, fontSize: 13 }}>
+                              5fb748c (tag: v1.0-handover-archive)
+                            </div>
+                          </div>
+
+                          <div style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                              Physical Hardware Location:
+                            </span>
+                            <div style={{ fontWeight: 600, color: '#0F172A', marginTop: 4, fontSize: 13 }}>
+                              Embedded Systems Lab 3, Workstation #4 (Locker 4)
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Faculty Directive */}
+                      <div style={{
+                        background: '#F5F3FF',
+                        border: '1.5px solid #DDD6FE',
+                        borderLeft: '4px solid #7C3AED',
+                        borderRadius: 14,
+                        padding: '20px 22px',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+                      }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 800, color: '#6D28D9', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 7 }}>
+                          <FileText style={{ width: 15, height: 15, color: '#7C3AED' }} />
+                          <span>Faculty Guide Directive • Prof. Vikram Malhotra</span>
+                        </div>
+                        <p style={{
+                          margin: 0,
+                          fontSize: 13,
+                          color: '#1E1B4B',
+                          fontStyle: 'italic',
+                          lineHeight: 1.6,
+                          background: '#FFFFFF',
+                          padding: '12px 14px',
+                          borderRadius: 8,
+                          border: '1px solid #EDE9FE'
+                        }}>
+                          "{handoverRecord?.facultyGuidanceNotes || 'Hardware kit stored in CS Lab 3, Locker #4. Base embedding model verified. Do not rewrite from scratch — focus immediately on liveness filtering and Jetson edge optimization.'}"
+                        </p>
+                      </div>
+
+                    </div>
+
+                  </div>
+                </>
+              )}
             </div>
           )}
 

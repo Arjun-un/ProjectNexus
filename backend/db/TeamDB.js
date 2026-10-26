@@ -115,6 +115,16 @@ const teamDBSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
+  teamStatusUpdate: {
+    message: { type: String, default: '', trim: true },
+    updatedBy: { type: String, default: '', trim: true },
+    updatedAt: { type: Date, default: null }
+  },
+  teamStatusHistory: [{
+    message: { type: String, required: true, trim: true },
+    updatedBy: { type: String, default: 'Team Member', trim: true },
+    updatedAt: { type: Date, default: Date.now }
+  }],
   lastUpdated: {
     type: Date,
     default: Date.now

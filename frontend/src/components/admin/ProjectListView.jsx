@@ -284,6 +284,7 @@ export default function ProjectListView({
   getStatusBadge,
   onDeleteProject,
   onMarkCompleted,
+  onToggleHandover,
   onOpenHandover,
 }) {
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -519,9 +520,29 @@ export default function ProjectListView({
                       </td>
 
                       {/* Title */}
-                      <td style={{ padding: '15px 14px', maxWidth: '220px', verticalAlign: 'middle' }}>
-                        <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {p.title}
+                      <td style={{ padding: '15px 14px', maxWidth: '240px', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontWeight: 700, color: '#0F172A', fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {p.title}
+                          </span>
+                          {p.isOpenToHandover && (
+                            <span style={{
+                              fontSize: '9.5px',
+                              fontWeight: 800,
+                              color: '#4338CA',
+                              backgroundColor: '#EEF2FF',
+                              border: '1px solid #C7D2FE',
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              whiteSpace: 'nowrap',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}>
+                              <GitFork size={9} />
+                              Handover Open
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           Guide: {p.facultyGuide}
@@ -633,28 +654,32 @@ export default function ProjectListView({
                           {/* 2. Open to Handover Button */}
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); onOpenHandover && onOpenHandover(p, e); }}
-                            title="Open in Handover Protocol Engine"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleHandover ? onToggleHandover(p.projectId) : (onOpenHandover && onOpenHandover(p, e));
+                            }}
+                            title={p.isOpenToHandover ? "Handover Active — Click to close handover" : "Flag Open to Handover"}
                             style={{
                               display: 'inline-flex', alignItems: 'center', gap: '4px',
                               padding: '5px 9px',
                               fontSize: '11.5px', fontWeight: 700,
-                              color: '#7C3AED', background: '#F5F3FF',
-                              border: '1.5px solid #DDD6FE',
+                              color: p.isOpenToHandover ? '#4338CA' : '#7C3AED',
+                              background: p.isOpenToHandover ? '#EEF2FF' : '#F5F3FF',
+                              border: `1.5px solid ${p.isOpenToHandover ? '#818CF8' : '#DDD6FE'}`,
                               borderRadius: '7px', cursor: 'pointer',
                               transition: 'all 0.15s ease', whiteSpace: 'nowrap',
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.background = '#EDE9FE';
-                              e.currentTarget.style.borderColor = '#8B5CF6';
+                              e.currentTarget.style.background = p.isOpenToHandover ? '#E0E7FF' : '#EDE9FE';
+                              e.currentTarget.style.borderColor = p.isOpenToHandover ? '#6366F1' : '#8B5CF6';
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.background = '#F5F3FF';
-                              e.currentTarget.style.borderColor = '#DDD6FE';
+                              e.currentTarget.style.background = p.isOpenToHandover ? '#EEF2FF' : '#F5F3FF';
+                              e.currentTarget.style.borderColor = p.isOpenToHandover ? '#818CF8' : '#DDD6FE';
                             }}
                           >
-                            <GitFork size={12} color="#7C3AED" />
-                            <span>Handover</span>
+                            <GitFork size={12} color={p.isOpenToHandover ? '#4338CA' : '#7C3AED'} />
+                            <span>{p.isOpenToHandover ? 'Handover Active' : 'Handover'}</span>
                           </button>
 
                           {/* View button */}
@@ -724,8 +749,13 @@ export default function ProjectListView({
                                   onClick={(e) => { onMarkCompleted && onMarkCompleted(p, e); setOpenMenuId(null); }}
                                 />
                                 <DropdownItem
-                                  icon={<GitFork size={13} color="#7C3AED" />}
-                                  label="Open to Handover"
+                                  icon={<GitFork size={13} color="#4338CA" />}
+                                  label={p.isOpenToHandover ? "Close Handover Status" : "Mark Open to Handover"}
+                                  onClick={(e) => { e.stopPropagation(); onToggleHandover && onToggleHandover(p.projectId); setOpenMenuId(null); }}
+                                />
+                                <DropdownItem
+                                  icon={<Sparkles size={13} color="#7C3AED" />}
+                                  label="View Handover Dossier"
                                   onClick={(e) => { onOpenHandover && onOpenHandover(p, e); setOpenMenuId(null); }}
                                 />
                                 <DropdownItem

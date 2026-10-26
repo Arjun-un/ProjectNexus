@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './AuthForms.css';
 import {
   KeyRound,
@@ -14,32 +14,22 @@ import {
 const API_BASE = 'http://localhost:5000/api';
 
 export default function AccessCodePage({ onSuccess, onBack }) {
-  const [accessCode, setAccessCode] = useState('');
-  const [projectId, setProjectId] = useState('');
+  const [accessCode, setAccessCode] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
+    return (urlParams.get('code') || hashParams.get('code') || '').toUpperCase();
+  });
+  const [projectId, setProjectId] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
+    return (urlParams.get('project') || urlParams.get('projectId') || hashParams.get('project') || hashParams.get('projectId') || '').toUpperCase();
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [shake, setShake] = useState(false);
   const [redeemed, setRedeemed] = useState(false);
-
-  useEffect(() => {
-    // Auto-fill from URL query or hash params (e.g. /join?code=NEXUS-JSPB)
-    const urlParams = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
-    
-    const codeParam = urlParams.get('code') || hashParams.get('code');
-    const projectParam = urlParams.get('project') || urlParams.get('projectId') || hashParams.get('project') || hashParams.get('projectId');
-    
-    if (codeParam) {
-      setAccessCode(codeParam.toUpperCase());
-    }
-    if (projectParam) {
-      setProjectId(projectParam.toUpperCase());
-    }
-  }, []);
-
-  useEffect(() => {
-    if (error) setError('');
-  }, [accessCode, projectId]);
 
   const triggerShake = () => {
     setShake(true);
@@ -108,7 +98,7 @@ export default function AccessCodePage({ onSuccess, onBack }) {
   };
 
   return (
-    <div className="auth-page auth-page--amber">
+    <div className="auth-page">
       <div className={`auth-card ${shake ? 'auth-card--shake' : ''}`}>
 
         {redeemed ? (
@@ -132,10 +122,7 @@ export default function AccessCodePage({ onSuccess, onBack }) {
             </button>
 
             {/* Icon + Heading */}
-            <div
-              className="auth-icon-wrap"
-              style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
-            >
+            <div className="auth-icon-wrap">
               <KeyRound style={{ width: 24, height: 24, color: '#fff' }} />
             </div>
 
@@ -146,14 +133,7 @@ export default function AccessCodePage({ onSuccess, onBack }) {
             </p>
 
             {/* Badge */}
-            <div
-              className="auth-badge"
-              style={{
-                background: 'rgba(245,158,11,0.1)',
-                borderColor: 'rgba(245,158,11,0.3)',
-                color: '#fbbf24'
-              }}
-            >
+            <div className="auth-badge">
               <Sparkles style={{ width: 13, height: 13 }} />
               First-Time Team Registration
             </div>
@@ -174,7 +154,10 @@ export default function AccessCodePage({ onSuccess, onBack }) {
                     className="auth-input"
                     placeholder="e.g. NX-2026-ABCD1234"
                     value={accessCode}
-                    onChange={e => setAccessCode(e.target.value)}
+                    onChange={e => {
+                      setAccessCode(e.target.value);
+                      if (error) setError('');
+                    }}
                     autoComplete="off"
                     spellCheck={false}
                     disabled={isLoading}
@@ -190,7 +173,7 @@ export default function AccessCodePage({ onSuccess, onBack }) {
               <div className="auth-field">
                 <label className="auth-label" htmlFor="access-code-project-id">
                   Project ID{' '}
-                  <span style={{ color: '#334155', fontWeight: 400 }}>(optional)</span>
+                  <span style={{ color: '#64748B', fontWeight: 400 }}>(optional)</span>
                 </label>
                 <div className="auth-input-wrap">
                   <Hash className="auth-input-icon" />
@@ -200,7 +183,10 @@ export default function AccessCodePage({ onSuccess, onBack }) {
                     className="auth-input"
                     placeholder="e.g. proj-101"
                     value={projectId}
-                    onChange={e => setProjectId(e.target.value)}
+                    onChange={e => {
+                      setProjectId(e.target.value);
+                      if (error) setError('');
+                    }}
                     autoComplete="off"
                     disabled={isLoading}
                   />
@@ -224,7 +210,6 @@ export default function AccessCodePage({ onSuccess, onBack }) {
                 type="submit"
                 className="auth-submit-btn"
                 disabled={isLoading}
-                style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
               >
                 {isLoading ? (
                   <>
