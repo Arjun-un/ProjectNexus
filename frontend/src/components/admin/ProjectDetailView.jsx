@@ -26,7 +26,9 @@ import {
   Layers,
   GitFork,
   MessageSquare,
-  X
+  X,
+  Link2,
+  UserCheck
 } from 'lucide-react';
 
 /* ── Date formatting helpers ── */
@@ -683,84 +685,6 @@ export default function ProjectDetailView({
             )}
           </div>
 
-          {/* Current Milestone & Specs Card */}
-          <div className="pn-panel">
-            <div className="pn-panel-header">
-              <div className="pn-panel-title-group">
-                <Layers className="w-4 h-4 text-blue-600" />
-                <h3 className="pn-panel-title">
-                  {project.category === 'Software' ? 'Software Tech Stack & Architecture' : 'Physical Components & Lab Allocation'}
-                </h3>
-              </div>
-              <span className="pn-id-pill" style={{ fontSize: '11px' }}>
-                {project.currentMilestone || 'Project Initiation & Setup'}
-              </span>
-            </div>
-
-            {project.category === 'Software' ? (
-              <div>
-                <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
-                  Technologies & Frameworks
-                </div>
-                <div className="pn-chips-wrap">
-                  {(project.techStack && project.techStack.length > 0
-                    ? project.techStack
-                    : ['React', 'Node.js', 'Python', 'PostgreSQL']
-                  ).map((tech, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleCopyChip(tech)}
-                      className="pn-tech-chip"
-                      title="Click to copy"
-                    >
-                      <span>{tech}</span>
-                      {copiedChip === tech ? (
-                        <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
-                      ) : (
-                        <Copy className="w-3 h-3 opacity-40 hover:opacity-100" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {project.labAssigned && (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '12px 14px',
-                    backgroundColor: '#F8FAFC',
-                    borderRadius: '10px',
-                    border: '1px solid #E2E8F0',
-                    fontSize: '12.5px',
-                    color: '#334155'
-                  }}>
-                    <Building2 className="w-4 h-4 text-blue-600 shrink-0" />
-                    <span>Allocated Institutional Lab: <strong>{project.labAssigned}</strong></span>
-                  </div>
-                )}
-
-                <div>
-                  <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
-                    Required Hardware Components & Sensors
-                  </div>
-                  <div className="pn-chips-wrap">
-                    {(project.componentsRequired && project.componentsRequired.length > 0
-                      ? project.componentsRequired
-                      : ['Microcontroller Module', 'Telemetry Sensor', 'Power Conditioning Unit']
-                    ).map((comp, idx) => (
-                      <span key={idx} className="pn-component-chip">
-                        {comp}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* 3. Git Webhook Ingestion & Commit Telemetry Stream */}
           <div className="pn-panel" style={{ border: (gitEvents.length > 0 || gitSummary?.isConnected) ? '1.5px solid #DDD6FE' : '1px solid #E2E8F0' }}>
@@ -845,78 +769,94 @@ export default function ProjectDetailView({
 
             {/* Webhook Tracking URL & Stats Header */}
             <div style={{
-              padding: '12px 14px',
+              padding: '14px 16px',
               backgroundColor: '#F8FAFC',
-              borderRadius: '10px',
+              borderRadius: '12px',
               border: '1px solid #E2E8F0',
               marginBottom: '14px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '10px'
+              gap: '12px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#475569' }}>
-                  <span style={{ fontWeight: 700, color: '#0F172A' }}>Webhook Endpoint:</span>
-                  <code style={{
-                    backgroundColor: '#FFFFFF',
-                    padding: '2px 8px',
-                    borderRadius: '5px',
-                    border: '1px solid #CBD5E1',
-                    fontSize: '11.5px',
-                    color: '#2563EB',
-                    fontFamily: 'monospace'
-                  }}>
-                    http://localhost:5000/api/webhooks/repo/{project.projectId}
-                  </code>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>
+                  Webhook Ingestion Payload URL
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleCopyChip(`http://localhost:5000/api/webhooks/repo/${project.projectId}`)}
-                  style={{
-                    background: '#FFFFFF',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '6px',
-                    padding: '3px 8px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color: '#475569',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  {copiedChip === `http://localhost:5000/api/webhooks/repo/${project.projectId}` ? (
-                    <><Check className="w-3.5 h-3.5 text-emerald-600" /> Copied!</>
-                  ) : (
-                    <><Copy className="w-3.5 h-3.5" /> Copy URL</>
-                  )}
-                </button>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  backgroundColor: '#FFFFFF',
+                  border: '1.5px solid #CBD5E1',
+                  borderRadius: '8px',
+                  padding: '4px 6px 4px 12px',
+                  gap: '8px',
+                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.03)'
+                }}>
+                  <Link2 className="w-4 h-4 text-purple-600 shrink-0" />
+                  <span style={{
+                    flex: 1,
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#1E293B',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }} title={`https://support-shy-overcook.ngrok-free.dev/api/webhooks/repo/${project.projectId}`}>
+                    https://support-shy-overcook.ngrok-free.dev/api/webhooks/repo/{project.projectId}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyChip(`https://support-shy-overcook.ngrok-free.dev/api/webhooks/repo/${project.projectId}`)}
+                    style={{
+                      background: copiedChip === `https://support-shy-overcook.ngrok-free.dev/api/webhooks/repo/${project.projectId}` ? '#ECFDF5' : '#7C3AED',
+                      border: copiedChip === `https://support-shy-overcook.ngrok-free.dev/api/webhooks/repo/${project.projectId}` ? '1px solid #A7F3D0' : 'none',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      color: copiedChip === `https://support-shy-overcook.ngrok-free.dev/api/webhooks/repo/${project.projectId}` ? '#065F46' : '#FFFFFF',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {copiedChip === `https://support-shy-overcook.ngrok-free.dev/api/webhooks/repo/${project.projectId}` ? (
+                      <><Check className="w-3.5 h-3.5 text-emerald-600" /> Copied!</>
+                    ) : (
+                      <><Copy className="w-3.5 h-3.5" /> Copy URL</>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* 4 Quick Metrics */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px', paddingTop: '6px', borderTop: '1px solid #F1F5F9' }}>
-                <div>
-                  <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Commits Traced</div>
-                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginTop: '2px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '10px', paddingTop: '10px', borderTop: '1px solid #E2E8F0' }}>
+                <div style={{ padding: '8px 10px', backgroundColor: '#FFFFFF', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Commits Traced</div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', marginTop: '3px' }}>
                     {gitSummary?.totalCommits ?? gitEvents.length}
                   </div>
                 </div>
-                <div>
-                  <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Pull Requests</div>
-                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginTop: '2px' }}>
+                <div style={{ padding: '8px 10px', backgroundColor: '#FFFFFF', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Pull Requests</div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', marginTop: '3px' }}>
                     {gitSummary?.totalPullRequests ?? 0}
                   </div>
                 </div>
-                <div>
-                  <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Contributors</div>
-                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginTop: '2px' }}>
+                <div style={{ padding: '8px 10px', backgroundColor: '#FFFFFF', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Contributors</div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', marginTop: '3px' }}>
                     {gitSummary?.contributors?.length ?? 0}
                   </div>
                 </div>
-                <div>
-                  <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Latest Commit</div>
-                  <div style={{ fontSize: '13px', fontWeight: 700, fontFamily: 'monospace', color: '#2563EB', marginTop: '2px' }}>
+                <div style={{ padding: '8px 10px', backgroundColor: '#FFFFFF', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Latest Commit</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, fontFamily: 'monospace', color: '#2563EB', marginTop: '5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {gitSummary?.lastCommitSha ? gitSummary.lastCommitSha.slice(0, 7) : (gitEvents[0]?.commitSha ? gitEvents[0].commitSha.slice(0, 7) : 'None')}
                   </div>
                 </div>
@@ -1100,76 +1040,64 @@ export default function ProjectDetailView({
                 </div>
               ) : (
                 <div style={{
-                  padding: '24px 16px',
-                  backgroundColor: '#F8FAFC',
-                  borderRadius: '10px',
-                  border: '1px dashed #CBD5E1',
-                  textAlign: 'center'
+                  padding: '32px 20px',
+                  backgroundColor: '#FAF5FF',
+                  borderRadius: '12px',
+                  border: '1.5px dashed #DDD6FE',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
                 }}>
-                  <FolderGit2 className="w-8 h-8 text-slate-400" style={{ margin: '0 auto 8px' }} />
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
+                  <div style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '12px',
+                    backgroundColor: '#F3E8FF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#7C3AED',
+                    marginBottom: '4px'
+                  }}>
+                    <FolderGit2 className="w-6 h-6" />
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#4C1D95' }}>
                     No Commits Traced Yet via Webhook
                   </div>
-                  <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 12px', lineHeight: 1.45 }}>
-                    When team members push code to GitHub through the webhook URL, commits and file changes stream here live.<br />
-                    Click <strong>"Simulate Test Push"</strong> above to test the ingestion pipeline immediately.
+                  <p style={{ fontSize: '12px', color: '#6B21A8', margin: 0, maxWidth: '440px', lineHeight: 1.5 }}>
+                    When team members push code to GitHub through the webhook URL, commits and file changes stream here live.
                   </p>
                   <button
                     type="button"
                     onClick={handleSimulateGitPush}
                     disabled={isSimulatingGit}
                     style={{
-                      padding: '7px 14px',
+                      marginTop: '8px',
+                      padding: '8px 18px',
                       backgroundColor: '#7C3AED',
                       color: '#FFFFFF',
                       border: 'none',
-                      borderRadius: '7px',
-                      fontSize: '12px',
+                      borderRadius: '8px',
+                      fontSize: '12.5px',
                       fontWeight: 700,
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 8px rgba(124, 58, 237, 0.3)',
+                      transition: 'all 0.15s ease'
                     }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6D28D9'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#7C3AED'}
                   >
-                    Simulate Test Git Push Now
+                    <GitCommit className="w-4 h-4" />
+                    <span>{isSimulatingGit ? 'Injecting commit...' : 'Simulate Test Git Push Now'}</span>
                   </button>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Timeline of Major Events & Telemetry */}
-          <div className="pn-panel">
-            <div className="pn-panel-header">
-              <div className="pn-panel-title-group">
-                <Clock className="w-4 h-4 text-blue-600" />
-                <h3 className="pn-panel-title">Institutional Governance & Telemetry Audit Trail</h3>
-              </div>
-              <span style={{ fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>
-                {(project.timeline || []).length} Recorded Events
-              </span>
-            </div>
-
-            <div className="pn-timeline-list">
-              {(project.timeline && project.timeline.length > 0 ? project.timeline : [
-                {
-                  title: 'Project Provisioned',
-                  description: 'Project initialized by Administration with access credentials.',
-                  timestamp: project.createdAt || 'Initial',
-                  type: 'creation'
-                }
-              ]).map((ev, idx) => {
-                const relTime = getRelativeTime(ev.timestamp);
-                return (
-                  <div key={idx} className="pn-timeline-item">
-                    <div className={`pn-timeline-dot ${ev.type || 'creation'}`} />
-                    <div className="pn-timeline-title">{ev.title}</div>
-                    <p className="pn-timeline-desc">{ev.description}</p>
-                    <div className="pn-timeline-time">
-                      <span>{formatTimestamp(ev.timestamp)}</span>
-                      {relTime && <span style={{ marginLeft: '6px', color: '#64748B' }}>• {relTime}</span>}
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           </div>
 
@@ -1391,6 +1319,171 @@ export default function ProjectDetailView({
                 </button>
               </div>
             )}
+          </div>
+
+          {/* 2. Technologies & Frameworks / Component Allocation */}
+          <div className="pn-panel">
+            <div className="pn-panel-header">
+              <div className="pn-panel-title-group">
+                <Layers className="w-4 h-4 text-blue-600" />
+                <h3 className="pn-panel-title">
+                  {project.category === 'Software' ? 'Software Tech Stack & Architecture' : 'Physical Components & Lab Allocation'}
+                </h3>
+              </div>
+              <span className="pn-id-pill" style={{ fontSize: '11px' }}>
+                {project.currentMilestone || 'Active Sprint'}
+              </span>
+            </div>
+
+            {project.category === 'Software' ? (
+              <div>
+                <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                  Technologies & Frameworks
+                </div>
+                <div className="pn-chips-wrap">
+                  {(project.techStack && project.techStack.length > 0
+                    ? project.techStack
+                    : ['React', 'Node.js', 'Python', 'PostgreSQL']
+                  ).map((tech, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleCopyChip(tech)}
+                      className="pn-tech-chip"
+                      title="Click to copy"
+                    >
+                      <span>{tech}</span>
+                      {copiedChip === tech ? (
+                        <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                      ) : (
+                        <Copy className="w-3 h-3 opacity-40 hover:opacity-100" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {project.labAssigned && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '12px 14px',
+                    backgroundColor: '#F8FAFC',
+                    borderRadius: '10px',
+                    border: '1px solid #E2E8F0',
+                    fontSize: '12.5px',
+                    color: '#334155'
+                  }}>
+                    <Building2 className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>Allocated Institutional Lab: <strong>{project.labAssigned}</strong></span>
+                  </div>
+                )}
+
+                <div>
+                  <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                    Required Hardware Components & Sensors
+                  </div>
+                  <div className="pn-chips-wrap">
+                    {(project.componentsRequired && project.componentsRequired.length > 0
+                      ? project.componentsRequired
+                      : ['Microcontroller Module', 'Telemetry Sensor', 'Power Conditioning Unit']
+                    ).map((comp, idx) => (
+                      <span key={idx} className="pn-component-chip">
+                        {comp}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 3. Academic Mentorship & Faculty Guide Card */}
+          <div className="pn-panel">
+            <div className="pn-panel-header">
+              <div className="pn-panel-title-group">
+                <UserCheck className="w-4 h-4 text-blue-600" />
+                <h3 className="pn-panel-title">Academic Mentorship & Guide</h3>
+              </div>
+              <span className="pn-id-pill" style={{ fontSize: '10.5px' }}>
+                {project.department || 'Academic Division'}
+              </span>
+            </div>
+
+            <div style={{
+              padding: '14px',
+              backgroundColor: '#F8FAFC',
+              borderRadius: '10px',
+              border: '1px solid #E2E8F0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                backgroundColor: '#EFF6FF',
+                color: '#2563EB',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 800,
+                fontSize: '15px',
+                border: '1.5px solid #BFDBFE',
+                flexShrink: 0
+              }}>
+                {(project.facultyGuide || 'P')[0]}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#0F172A' }}>
+                  {project.facultyGuide || 'Unassigned Faculty Guide'}
+                </div>
+                <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>
+                  Institutional Project Supervisor • {project.department}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Institutional Governance & Telemetry Audit Trail */}
+          <div className="pn-panel">
+            <div className="pn-panel-header">
+              <div className="pn-panel-title-group">
+                <Clock className="w-4 h-4 text-blue-600" />
+                <h3 className="pn-panel-title">Institutional Governance & Telemetry Audit Trail</h3>
+              </div>
+              <span style={{ fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>
+                {(project.timeline || []).length} Recorded Events
+              </span>
+            </div>
+
+            <div className="pn-timeline-list">
+              {(project.timeline && project.timeline.length > 0 ? project.timeline : [
+                {
+                  title: 'Project Provisioned',
+                  description: 'Project initialized by Administration with access credentials.',
+                  timestamp: project.createdAt || 'Initial',
+                  type: 'creation'
+                }
+              ]).map((ev, idx) => {
+                const relTime = getRelativeTime(ev.timestamp);
+                const dotType = (ev.type || '').toLowerCase();
+                return (
+                  <div key={idx} className="pn-timeline-item">
+                    <div className={`pn-timeline-dot ${dotType || 'creation'}`} />
+                    <div className="pn-timeline-title">{ev.title}</div>
+                    <p className="pn-timeline-desc">{ev.description}</p>
+                    <div className="pn-timeline-time">
+                      <span>{formatTimestamp(ev.timestamp)}</span>
+                      {relTime && <span style={{ marginLeft: '6px', color: '#64748B' }}>• {relTime}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
         </div>

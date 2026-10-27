@@ -57,7 +57,10 @@ app.use('/api/webhooks', webhookRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
+const { startTunnel } = require('./services/tunnelService');
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 ProjectNexus Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  await startTunnel(PORT);
 });

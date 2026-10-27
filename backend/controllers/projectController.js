@@ -47,6 +47,15 @@ const generateProjectId = async (department, academicYear) => {
   return `${deptCode}-${year}-${Date.now().toString().slice(-3)}`;
 };
 
+// Helper to resolve the active public base URL for GitHub webhooks
+const getPublicWebhookBase = () => {
+  if (process.env.NGROK_DOMAIN) {
+    const clean = process.env.NGROK_DOMAIN.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    return `https://${clean}`;
+  }
+  return 'https://support-shy-overcook.ngrok-free.dev';
+};
+
 /**
  * @route   GET /api/projects/kpis
  * @desc    Get dashboard metrics, critical projects, and recent activity
@@ -748,7 +757,7 @@ exports.getAllRegisteredTeams = async (req, res) => {
             memberCount: members.length + (leaderName ? 1 : 0),
             githubRepoUrl: proj.githubUrl || proj.githubIntegration?.repoUrl || '',
             gitBranch: 'main',
-            webhookUrl: `http://localhost:5000/api/webhooks/repo/${proj.projectId}`,
+            webhookUrl: `${getPublicWebhookBase()}/api/webhooks/repo/${proj.projectId}`,
             studentSummary: proj.studentSummary || '',
             currentStatusNote: proj.currentStatusNote || '',
             lastUpdated: proj.updatedAt
@@ -807,13 +816,18 @@ exports.getProjectTeam = async (req, res) => {
         members: project.team?.members && project.team.members.length > 0 ? project.team.members : [],
         githubRepoUrl: project.githubUrl || '',
         gitBranch: 'main',
-        webhookUrl: `http://localhost:5000/api/webhooks/repo/${project.projectId}`
+        webhookUrl: `${getPublicWebhookBase()}/api/webhooks/repo/${project.projectId}`
       });
+    } else if (!teamRecord.webhookUrl || teamRecord.webhookUrl.includes('localhost:5000')) {
+      // Auto-upgrade legacy localhost tracking URL to the active public tunnel URL
+      teamRecord.webhookUrl = `${getPublicWebhookBase()}/api/webhooks/repo/${project.projectId}`;
+      await teamRecord.save();
     }
 
     res.status(200).json({
       success: true,
-      data: teamRecord
+      data: teamRecord,
+      publicWebhookBase: getPublicWebhookBase()
     });
   } catch (error) {
     console.error('Error fetching teamdb record:', error);
@@ -1269,9 +1283,7 @@ exports.generateGithubWebhook = async (req, res) => {
     await recalculateHealthScore(project._id);
 
     // 7. Construct Webhook Payload URL
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
-    const host = req.get('host') || 'localhost:5000';
-    const webhookUrl = `${protocol}://${host}/api/webhooks/github/${project.projectId || project._id}`;
+    const webhookUrl = `${getPublicWebhookBase()}/api/webhooks/github/${project.projectId || project._id}`;
 
     // Return the secret ONCE in this response only
     res.status(200).json({

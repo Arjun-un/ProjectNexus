@@ -351,8 +351,9 @@
 /* ── Main Two-Column Layout ── */
 .pn-main-grid {
   display: grid;
-  grid-template-columns: 1.7fr 1.3fr;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
   gap: 24px;
+  align-items: start;
 }
 
 @media (max-width: 1024px) {
@@ -365,6 +366,7 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-width: 0;
 }
 
 /* ── Reusable Section Panel ── */
@@ -515,14 +517,16 @@
   height: 12px;
   border-radius: 50%;
   border: 2px solid #FFFFFF;
-  box-shadow: 0 0 0 2px #CBD5E1;
+  background-color: #6366F1;
+  box-shadow: 0 0 0 2px #C7D2FE;
 }
 
 .pn-timeline-dot.creation { background-color: #2563EB; box-shadow: 0 0 0 2px #BFDBFE; }
-.pn-timeline-dot.team_join { background-color: #10B981; box-shadow: 0 0 0 2px #A7F3D0; }
+.pn-timeline-dot.team_join, .pn-timeline-dot.team_update { background-color: #10B981; box-shadow: 0 0 0 2px #A7F3D0; }
 .pn-timeline-dot.milestone { background-color: #8B5CF6; box-shadow: 0 0 0 2px #DDD6FE; }
-.pn-timeline-dot.alert { background-color: #F59E0B; box-shadow: 0 0 0 2px #FDE68A; }
+.pn-timeline-dot.alert, .pn-timeline-dot.warning { background-color: #F59E0B; box-shadow: 0 0 0 2px #FDE68A; }
 .pn-timeline-dot.handover { background-color: #EC4899; box-shadow: 0 0 0 2px #FBCFE8; }
+.pn-timeline-dot.webhook, .pn-timeline-dot.push { background-color: #06B6D4; box-shadow: 0 0 0 2px #A5F3FC; }
 
 .pn-timeline-title {
   font-size: 13px;

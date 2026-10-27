@@ -98,7 +98,7 @@ export default function TeamsDirectoryView({
           memberCount: (p.team?.members?.length || 0) + (p.team?.leader?.name ? 1 : 0),
           githubRepoUrl: p.githubUrl || p.githubIntegration?.repoUrl || '',
           gitBranch: 'main',
-          webhookUrl: `http://localhost:5000/api/webhooks/repo/${p.projectId}`
+          webhookUrl: `https://support-shy-overcook.ngrok-free.dev/api/webhooks/repo/${p.projectId}`
         }));
       setTeams(extracted);
     };

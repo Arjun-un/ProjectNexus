@@ -79,12 +79,13 @@ mini_project/
   - Project provisioning with randomized faculty guide assignment and auto-generated `NEXUS-XXXX` access codes.
   - Deletion and archiving with full telemetry event cascading cleanup.
   - One-click Gmail SMTP email dispatch of project invitations and access codes.
-  - Comprehensive Project Detail View with student-authored project brief, current sprint notes, and team member contribution breakdown.
+  - Comprehensive Project Detail View with balanced two-column enterprise layout, sleek full-width Webhook Ingestion Payload URL bar, dedicated academic mentorship card, and normalized governance audit trail.
+  - Critical Projects table with clean human-readable date formatting and responsive Action column alignment preventing Inspect button clipping.
 * **Team Workspace**:
   - Direct team onboarding via human Project ID + Team Access Code.
   - Team Directory & Repository view synced with MongoDB collection `teamdb`.
   - Student-authored Project Brief, Live Status updates, and individual Member Contribution management.
-  - In-browser webhook simulation and real-time GitHub webhook payload configuration (`/api/webhooks/repo/:id`).
+  - In-browser webhook simulation and real-time GitHub webhook payload configuration (`/api/webhooks/repo/:id`) with zero-config auto-generation using the system's static public domain (`support-shy-overcook.ngrok-free.dev`).
   - Kanban task board with status workflows (`todo`, `in_progress`, `under_review`, `done`).
   - Milestone timeline and weekly update submission.
 * **Continuity & Handover Engine**:
@@ -98,7 +99,7 @@ mini_project/
 ---
 
 ## Known Issues / Things Intentionally Left Unfinished
-* **GitHub Webhook Verification in Localhost**: GitHub cannot deliver live webhook HTTP POST requests directly to `http://localhost:5000` unless a public tunnel (`ngrok` or `localtunnel`) is running. A custom tunnel URL input field is provided in the workspace UI to accommodate local testing.
+* **GitHub Webhook Verification**: Automatically exposed via built-in ngrok tunnel service (`backend/services/tunnelService.js`), connecting to developer's static domain (`support-shy-overcook.ngrok-free.dev`) automatically when `npm run dev` starts.
 * **Mock Fallbacks**: If MongoDB Atlas loses Internet connectivity, the frontend gracefully falls back to mock data stored in [`frontend/src/data/mockData.js`](frontend/src/data/mockData.js).
 
 ---
@@ -114,3 +115,6 @@ mini_project/
 * `EMAIL_SERVICE`: SMTP provider (e.g. `gmail`)
 * `EMAIL_USER`: Email address used to dispatch invitation links
 * `EMAIL_PASS`: App password / SMTP authentication token
+* `ENABLE_NGROK_TUNNEL`: Boolean flag to auto-start ngrok on server launch
+* `NGROK_DOMAIN`: Static ngrok dev domain assigned to developer
+* `NGROK_AUTHTOKEN`: ngrok authentication token

@@ -303,7 +303,7 @@ export default function TeamWorkspacePage({
 
     try {
       const projId = project.projectId || project.id || project._id;
-      const targetTrackingUrl = (tunnelBaseUrl ? `${tunnelBaseUrl.trim().replace(/\/+$/, '')}/api/webhooks/repo/${projId}` : `http://localhost:5000/api/webhooks/repo/${projId}`);
+      const targetTrackingUrl = (tunnelBaseUrl ? `${tunnelBaseUrl.trim().replace(/\/+$/, '')}/api/webhooks/repo/${projId}` : `https://support-shy-overcook.ngrok-free.dev/api/webhooks/repo/${projId}`);
       await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(projId)}/team`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -349,13 +349,14 @@ export default function TeamWorkspacePage({
 
   const health    = healthLabel(progress, isTracked);
   const daysLeft  = daysUntil(project?.expectedEndDate || project?.deadline);
+  const DEFAULT_SYSTEM_TUNNEL = 'https://support-shy-overcook.ngrok-free.dev';
   const [tunnelBaseUrl, setTunnelBaseUrl] = useState(() => {
-    return localStorage.getItem('nexus_tunnel_url') || '';
+    return localStorage.getItem('nexus_tunnel_url') || DEFAULT_SYSTEM_TUNNEL;
   });
 
   const handleUpdateTunnelUrl = (val) => {
     const clean = val.trim();
-    setTunnelBaseUrl(clean);
+    setTunnelBaseUrl(clean || DEFAULT_SYSTEM_TUNNEL);
     if (clean) {
       localStorage.setItem('nexus_tunnel_url', clean);
     } else {
@@ -364,7 +365,7 @@ export default function TeamWorkspacePage({
   };
 
   const rawProjectId = project?.projectId || project?.id || 'CSE-2026-041';
-  const effectiveBaseUrl = (tunnelBaseUrl || '').trim().replace(/\/+$/, '') || 'http://localhost:5000';
+  const effectiveBaseUrl = (tunnelBaseUrl || '').trim().replace(/\/+$/, '') || DEFAULT_SYSTEM_TUNNEL;
   const trackingUrl = `${effectiveBaseUrl}/api/webhooks/repo/${rawProjectId}`;
 
   // Accurate detection: Only projects that have undergone a handover show previous history
@@ -443,6 +444,8 @@ export default function TeamWorkspacePage({
                 setTunnelBaseUrl(parsed.origin);
               } catch {}
             }
+          } else if (result.publicWebhookBase) {
+            setTunnelBaseUrl(result.publicWebhookBase);
           }
         }
       } catch (err) {

@@ -29,6 +29,37 @@ export default function DashboardHomeView({
 }) {
   const hardwareIotCount = (iotCount || 0) + (hardwareCount || 0);
 
+  // Clean formatting helpers to prevent raw timestamp table overflow
+  const formatActivityDate = (dateVal) => {
+    if (!dateVal) return '—';
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return String(dateVal);
+      return d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return '—';
+    }
+  };
+
+  const formatActivityTime = (timeVal) => {
+    if (!timeVal) return '';
+    try {
+      const d = new Date(timeVal);
+      if (isNaN(d.getTime())) return String(timeVal);
+      return (
+        d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+        ' · ' +
+        d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      );
+    } catch {
+      return String(timeVal);
+    }
+  };
+
   return (
     <div className="admin-content-container">
       
@@ -176,10 +207,8 @@ export default function DashboardHomeView({
                     <td>
                       {getHealthBadge(p.health, p.healthScore)}
                     </td>
-                    <td style={{ color: '#64748B', fontSize: '12.5px' }}>
-                      {typeof p.lastActivityDate === 'string'
-                        ? p.lastActivityDate
-                        : new Date(p.lastActivityDate).toLocaleDateString()}
+                    <td style={{ color: '#64748B', fontSize: '12px', whiteSpace: 'nowrap' }} title={p.lastActivityDate ? new Date(p.lastActivityDate).toLocaleString() : ''}>
+                      {formatActivityDate(p.lastActivityDate)}
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <button
@@ -237,7 +266,7 @@ export default function DashboardHomeView({
                     <div className="admin-activity-title">{act.title}</div>
                     <div className="admin-activity-desc">{act.description}</div>
                     <div className="admin-activity-meta">
-                      {act.projectId} • {typeof act.timestamp === 'string' ? act.timestamp : new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {act.projectId} • {formatActivityTime(act.timestamp)}
                     </div>
                   </div>
                 </div>
