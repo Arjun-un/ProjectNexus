@@ -19,7 +19,13 @@ import {
   Calendar,
   Layers,
   ArrowRight,
-  Info
+  Info,
+  Terminal,
+  Code2,
+  Cpu,
+  Database,
+  Wrench,
+  CheckCheck
 } from 'lucide-react';
 
 export default function HandoverDossierPage({
@@ -29,7 +35,10 @@ export default function HandoverDossierPage({
 }) {
   const [activeTab, setActiveTab] = useState('dossier'); // 'dossier' | 'simulator'
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedClone, setCopiedClone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisStatus, setAnalysisStatus] = useState(null);
 
   // Available projects open to handover from the backend database
   const [availableProjects, setAvailableProjects] = useState([]);
@@ -46,21 +55,28 @@ export default function HandoverDossierPage({
         if (res.ok) {
           const json = await res.json();
           if (isMounted && json.success && Array.isArray(json.data)) {
-            setAvailableProjects(json.data);
-            // If no project was specifically selected yet, or if initialProject is not set
-            if (!initialProject && json.data.length > 0) {
-              setActiveProject(json.data[0]);
-            } else if (initialProject) {
-              // Ensure activeProject has latest data from open projects list if present
-              const matched = json.data.find(p => p.projectId === initialProject.projectId || p._id === initialProject._id);
-              if (matched) {
-                setActiveProject(matched);
+            let list = json.data;
+            if (initialProject) {
+              const alreadyInList = list.some(p => p.projectId === initialProject.projectId || p._id === initialProject._id);
+              if (!alreadyInList) {
+                list = [initialProject, ...list];
               }
+            }
+            setAvailableProjects(list);
+            if (!initialProject && list.length > 0) {
+              setActiveProject(list[0]);
+            } else if (initialProject) {
+              const matched = list.find(p => p.projectId === initialProject.projectId || p._id === initialProject._id);
+              setActiveProject(matched || initialProject);
             }
           }
         }
       } catch (err) {
         console.warn('Backend fetch for open handovers:', err);
+        if (initialProject && isMounted) {
+          setAvailableProjects([initialProject]);
+          setActiveProject(initialProject);
+        }
       } finally {
         if (isMounted) setIsLoadingAvailable(false);
       }
@@ -72,24 +88,61 @@ export default function HandoverDossierPage({
 
   const currentProject = activeProject || initialProject;
 
+  // Trigger automated analysis from Git URL + database telemetry
+  const triggerAnalysis = async (forceRefresh = false) => {
+    if (!currentProject) return;
+    const pid = currentProject.projectId || currentProject._id;
+    if (!pid) return;
+
+    setIsAnalyzing(true);
+    setAnalysisStatus({
+      type: 'loading',
+      text: forceRefresh ? 'Analyzing Git URL manifests & telemetry...' : 'Loading handover intelligence...'
+    });
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(pid)}/analyze-handover`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forceRefresh })
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const rep = json.data;
+          setActiveProject(prev => prev ? { ...prev, automatedHandoverReport: rep } : prev);
+          setAnalysisStatus({
+            type: json.cached ? 'cached' : 'live',
+            text: json.cached ? 'Loaded from instant cache' : 'Repository analyzed live via Git URL'
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Handover analysis request error:', err);
+      setAnalysisStatus({ type: 'error', text: 'Telemetry fallback active' });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // Automatically trigger baseline analysis on mount if report not yet cached
+  useEffect(() => {
+    if (currentProject && !currentProject.automatedHandoverReport) {
+      triggerAnalysis(false);
+    }
+  }, [currentProject?.projectId, currentProject?._id]);
+
   // Simulation Form State
   const [transferReason, setTransferReason] = useState(
     currentProject?.handoverReason || 'Academic term conclusion & senior team internship migration'
   );
   const [newTeamName, setNewTeamName] = useState('Team Gamma (Continuation)');
   const [newLeadEmail, setNewLeadEmail] = useState('lead.gamma@college.edu');
-  const [completedModules, setCompletedModules] = useState(
-    'FaceNet embedding model (94.2% validation accuracy)\nStudent profile photo enrollment pipeline\nPostgreSQL vector database schema & indexing'
-  );
-  const [pendingModules, setPendingModules] = useState(
-    'Anti-Spoofing & Liveness Filter (RGB camera spoof bug)\nEdge inference optimization (TensorRT on Jetson GPU)\nFaculty Attendance CSV Export module'
-  );
-  const [knownIssues, setKnownIssues] = useState(
-    'RTSP memory leak on Wi-Fi reconnect\nHigh CPU inference latency (420ms -> target <80ms)'
-  );
-  const [facultyNotes, setFacultyNotes] = useState(
-    'Hardware kit available in CS Lab 3, Locker #4. Base embedding network verified. Do not retrain from scratch — focus directly on liveness filtering and Jetson edge deployment.'
-  );
+  const [completedModules, setCompletedModules] = useState('');
+  const [pendingModules, setPendingModules] = useState('');
+  const [knownIssues, setKnownIssues] = useState('');
+  const [facultyNotes, setFacultyNotes] = useState('');
 
   const [handoverData, setHandoverData] = useState({
     packetId: `HO-${currentProject?.projectId || 'CSE-2025-041'}-v2.0`,
@@ -99,21 +152,10 @@ export default function HandoverDossierPage({
     toTeamName: 'Team Gamma (Continuation)',
     progressAtHandover: currentProject?.progress || 45,
     reason: currentProject?.handoverReason || 'Academic term conclusion & senior team internship migration',
-    completedModules: [
-      'FaceNet embedding model (94.2% validation accuracy)',
-      'Student profile photo enrollment pipeline',
-      'PostgreSQL vector database schema & indexing'
-    ],
-    pendingModules: [
-      'Anti-Spoofing & Liveness Filter (RGB camera spoof bug)',
-      'Edge inference optimization (TensorRT on Jetson GPU)',
-      'Faculty Attendance CSV Export module'
-    ],
-    knownIssues: [
-      'RTSP memory leak on Wi-Fi reconnect',
-      'High CPU inference latency (420ms -> target <80ms)'
-    ],
-    facultyNotes: 'Hardware kit available in CS Lab 3, Locker #4. Base embedding network verified. Do not retrain from scratch — focus directly on liveness filtering and Jetson edge deployment.',
+    completedModules: [],
+    pendingModules: [],
+    knownIssues: [],
+    facultyNotes: '',
     hardwareLocation: 'Embedded Systems Lab 3, Workstation #4',
     githubUrl: currentProject?.githubUrl || 'https://github.com/projectnexus/smart-attendance-system',
     pinnedCommitSha: '5fb748c',
@@ -121,7 +163,7 @@ export default function HandoverDossierPage({
     newAccessCode: 'NEXUS-G789'
   });
 
-  // Re-synchronize dynamically when a project is selected
+  // Re-synchronize dynamically when project or its automated report changes
   useEffect(() => {
     if (!currentProject) return;
     const currentVer = currentProject.currentVersionNumber || 1;
@@ -129,6 +171,7 @@ export default function HandoverDossierPage({
     const pId = currentProject.projectId || currentProject._id || 'PROJ-001';
     const fromTeam = currentProject.team?.name || (currentProject.title ? `${currentProject.title} Team` : 'Outgoing Team');
     const progressVal = currentProject.progress !== undefined ? currentProject.progress : 45;
+    const report = currentProject.automatedHandoverReport;
 
     const defaultCompleted = [
       currentProject.techStack && currentProject.techStack.length > 0
@@ -157,7 +200,7 @@ export default function HandoverDossierPage({
       ? `Supervised by ${currentProject.facultyGuide}. Inherit established baseline deliverables and consult departmental committee before altering core schemas.`
       : `Hardware and lab access registered in ${currentProject.department || 'Department'}. Retain existing commit history.`;
 
-    const repoUrl = currentProject.githubUrl || currentProject.githubIntegration?.repoUrl || `https://github.com/projectnexus/${pId.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+    const repoUrl = report?.repoInfo?.cleanUrl || currentProject.githubUrl || currentProject.githubIntegration?.repoUrl || `https://github.com/projectnexus/${pId.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
     const labLoc = currentProject.labAssigned || (currentProject.category === 'IoT' ? 'Embedded Systems Lab (Room 304)' : 'Department Cloud Computing Lab');
 
     const nextTeamDefault = `Team NextGen (v${nextVer}.0)`;
@@ -166,12 +209,27 @@ export default function HandoverDossierPage({
 
     const reasonText = currentProject.handoverReason || 'Academic term conclusion & senior team internship migration';
 
+    // Prioritize dynamic automated analysis modules over static strings
+    const finalCompleted = (report?.completedModules && report.completedModules.length > 0)
+      ? report.completedModules
+      : defaultCompleted;
+    const finalPending = (report?.pendingModules && report.pendingModules.length > 0)
+      ? report.pendingModules
+      : defaultPending;
+    const finalIssues = (report?.knownIssues && report.knownIssues.length > 0)
+      ? report.knownIssues
+      : defaultIssues;
+
+    const pinnedSha = report?.repoInfo?.lastCommitSha
+      ? report.repoInfo.lastCommitSha.slice(0, 7)
+      : (currentProject.githubIntegration?.lastCommitSha ? currentProject.githubIntegration.lastCommitSha.slice(0, 7) : '5fb748c');
+
     setTransferReason(reasonText);
     setNewTeamName(nextTeamDefault);
     setNewLeadEmail(nextEmailDefault);
-    setCompletedModules(defaultCompleted.join('\n'));
-    setPendingModules(defaultPending.join('\n'));
-    setKnownIssues(defaultIssues.join('\n'));
+    setCompletedModules(finalCompleted.join('\n'));
+    setPendingModules(finalPending.join('\n'));
+    setKnownIssues(finalIssues.join('\n'));
     setFacultyNotes(defaultNotes);
 
     setHandoverData({
@@ -182,13 +240,13 @@ export default function HandoverDossierPage({
       toTeamName: nextTeamDefault,
       progressAtHandover: progressVal,
       reason: reasonText,
-      completedModules: defaultCompleted,
-      pendingModules: defaultPending,
-      knownIssues: defaultIssues,
+      completedModules: finalCompleted,
+      pendingModules: finalPending,
+      knownIssues: finalIssues,
       facultyNotes: defaultNotes,
       hardwareLocation: labLoc,
       githubUrl: repoUrl,
-      pinnedCommitSha: currentProject.githubIntegration?.lastCommitSha ? currentProject.githubIntegration.lastCommitSha.slice(0, 7) : '5fb748c',
+      pinnedCommitSha: pinnedSha,
       gitBranch: `v${currentVer}.0-handover-archive`,
       newAccessCode: generatedAccessCode
     });
@@ -198,6 +256,13 @@ export default function HandoverDossierPage({
     navigator.clipboard.writeText(handoverData.newAccessCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleCopyClone = (cmd) => {
+    if (!cmd) return;
+    navigator.clipboard.writeText(cmd);
+    setCopiedClone(true);
+    setTimeout(() => setCopiedClone(false), 2000);
   };
 
   const handleRunSimulation = async (e) => {
@@ -520,6 +585,246 @@ export default function HandoverDossierPage({
                   Resuming from <strong>{handoverData.progressAtHandover}%</strong> baseline • Access code: <code style={{ color: '#2563EB', fontWeight: 700 }}>{handoverData.newAccessCode}</code>
                 </span>
               </div>
+            </div>
+
+            {/* ══════════════════════════════════════════════════════ */}
+            {/* AUTOMATED REPOSITORY & TECH STACK INTELLIGENCE CARD   */}
+            {/* ══════════════════════════════════════════════════════ */}
+            <div className="pn-intel-card">
+              <div className="pn-intel-header-row">
+                <div className="pn-intel-title-wrap">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <Sparkles className="w-4 h-4 text-indigo-600" />
+                    <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4F46E5' }}>
+                      Automated Handover Intelligence
+                    </span>
+                    {analysisStatus && (
+                      <span style={{
+                        fontSize: '10.5px',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        backgroundColor: analysisStatus.type === 'live' ? '#ECFDF5' : analysisStatus.type === 'cached' ? '#EFF6FF' : '#F1F5F9',
+                        color: analysisStatus.type === 'live' ? '#047857' : analysisStatus.type === 'cached' ? '#1D4ED8' : '#475569',
+                        border: `1px solid ${analysisStatus.type === 'live' ? '#A7F3D0' : analysisStatus.type === 'cached' ? '#BFDBFE' : '#E2E8F0'}`
+                      }}>
+                        {analysisStatus.text}
+                      </span>
+                    )}
+                  </div>
+                  <h2>Repository Architecture & Transition Intelligence</h2>
+                  <p>
+                    Full-stack ecosystem inspection combining remote Git URL manifests, commit history, and institutional telemetry.
+                  </p>
+                </div>
+
+                <div className="pn-intel-actions">
+                  <span className={`pn-intel-source-tag ${currentProject?.automatedHandoverReport?.source === 'github_hybrid' ? 'github' : ''}`}>
+                    <FolderGit2 className="w-3.5 h-3.5" />
+                    <span>
+                      {currentProject?.automatedHandoverReport?.source === 'github_hybrid'
+                        ? 'GitHub Remote + DB Telemetry'
+                        : 'Institutional Telemetry Engine'}
+                    </span>
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => triggerAnalysis(true)}
+                    disabled={isAnalyzing}
+                    className="pn-intel-btn-reanalyze"
+                    title="Execute live re-analysis against the Git URL and telemetry"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin' : ''}`} />
+                    <span>{isAnalyzing ? 'Analyzing Repository...' : '⚡ Re-Analyze Repository'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 1. Executive Narrative: "What Happened in the Project" */}
+              <div className="pn-intel-narrative-box">
+                <div className="pn-intel-narrative-header">
+                  <span className="pn-intel-narrative-title">
+                    <FileText className="w-4 h-4" />
+                    Executive Briefing: What Happened in the Project
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>
+                    Synthesized from {currentProject?.automatedHandoverReport?.repoInfo?.totalCommitsDetected || 0} commits & {currentProject?.progress || 45}% verified baseline
+                  </span>
+                </div>
+                <p className="pn-intel-narrative-text">
+                  {currentProject?.automatedHandoverReport?.executiveSummary || (
+                    `Project "${currentProject?.title}" was developed by ${currentProject?.team?.name || 'Predecessor Team'} to ${currentProject?.progress || 45}% baseline under version v${currentProject?.currentVersionNumber || 1}.0. Core database schemas and authentication are established. Successor team should inherit the pinned codebase branch and complete remaining sprint milestones.`
+                  )}
+                </p>
+              </div>
+
+              {/* 2. Detected Languages Distribution Bar */}
+              {currentProject?.automatedHandoverReport?.techStackIntelligence?.languages?.length > 0 && (
+                <div className="pn-intel-lang-section">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#334155' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Code2 className="w-4 h-4 text-blue-600" />
+                      <span>Languages Detected</span>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>
+                      Runtime: <strong>{currentProject?.automatedHandoverReport?.techStackIntelligence?.runtimeEnvironment || 'Node.js & Modern Web Stack'}</strong>
+                    </span>
+                  </div>
+
+                  <div className="pn-intel-lang-bar">
+                    {currentProject.automatedHandoverReport.techStackIntelligence.languages.map((l, i) => (
+                      <div
+                        key={i}
+                        className="pn-intel-lang-segment"
+                        style={{ width: `${l.percentage}%`, backgroundColor: l.color }}
+                        title={`${l.name}: ${l.percentage}%`}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="pn-intel-lang-legend">
+                    {currentProject.automatedHandoverReport.techStackIntelligence.languages.map((l, i) => (
+                      <div key={i} className="pn-intel-lang-pill">
+                        <span className="pn-intel-lang-dot" style={{ backgroundColor: l.color }} />
+                        <span>{l.name}</span>
+                        <span style={{ color: '#64748B', fontWeight: 500 }}>{l.percentage}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Categorized Tools & Frameworks Matrix */}
+              <div className="pn-intel-matrix-grid">
+                {/* Frontend */}
+                <div className="pn-intel-category-col">
+                  <div className="pn-intel-category-header">
+                    <Layers className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Frontend & UI</span>
+                  </div>
+                  <div className="pn-intel-chips-wrap">
+                    {(currentProject?.automatedHandoverReport?.techStackIntelligence?.frameworks?.frontend?.length > 0
+                      ? currentProject.automatedHandoverReport.techStackIntelligence.frameworks.frontend
+                      : ['React 19', 'Vite', 'Vanilla CSS', 'Lucide Icons']
+                    ).map((item, idx) => (
+                      <span key={idx} className="pn-intel-chip frontend">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Backend */}
+                <div className="pn-intel-category-col">
+                  <div className="pn-intel-category-header">
+                    <Cpu className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Backend Engine</span>
+                  </div>
+                  <div className="pn-intel-chips-wrap">
+                    {(currentProject?.automatedHandoverReport?.techStackIntelligence?.frameworks?.backend?.length > 0
+                      ? currentProject.automatedHandoverReport.techStackIntelligence.frameworks.backend
+                      : ['Node.js', 'Express 5', 'JWT Auth', 'REST APIs']
+                    ).map((item, idx) => (
+                      <span key={idx} className="pn-intel-chip backend">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Database */}
+                <div className="pn-intel-category-col">
+                  <div className="pn-intel-category-header">
+                    <Database className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Database & ORM</span>
+                  </div>
+                  <div className="pn-intel-chips-wrap">
+                    {(currentProject?.automatedHandoverReport?.techStackIntelligence?.frameworks?.database?.length > 0
+                      ? currentProject.automatedHandoverReport.techStackIntelligence.frameworks.database
+                      : ['MongoDB Atlas', 'Mongoose ODM', 'Indexing']
+                    ).map((item, idx) => (
+                      <span key={idx} className="pn-intel-chip database">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* DevOps / Telemetry */}
+                <div className="pn-intel-category-col">
+                  <div className="pn-intel-category-header">
+                    <Wrench className="w-3.5 h-3.5 text-orange-600" />
+                    <span>DevOps & Telemetry</span>
+                  </div>
+                  <div className="pn-intel-chips-wrap">
+                    {(currentProject?.automatedHandoverReport?.techStackIntelligence?.frameworks?.devops?.length > 0
+                      ? currentProject.automatedHandoverReport.techStackIntelligence.frameworks.devops
+                      : ['Ngrok Tunnel', 'GitHub Webhooks', 'Nodemailer']
+                    ).map((item, idx) => (
+                      <span key={idx} className="pn-intel-chip devops">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Successor Team Quickstart & Onboarding Guide */}
+              <div className="pn-intel-onboarding-box">
+                <div className="pn-intel-onboarding-header">
+                  <span className="pn-intel-onboarding-title">
+                    <Terminal className="w-4 h-4 text-cyan-400" />
+                    Successor Team Onboarding Terminal Guide
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#94A3B8' }}>
+                    Standard setup pipeline for incoming engineering team
+                  </span>
+                </div>
+
+                <div className="pn-intel-cmd-row">
+                  <code>{currentProject?.automatedHandoverReport?.onboardingGuide?.cloneCommand || `git clone ${handoverData.githubUrl}`}</code>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyClone(currentProject?.automatedHandoverReport?.onboardingGuide?.cloneCommand || `git clone ${handoverData.githubUrl}`)}
+                    className="pn-intel-copy-btn"
+                    title="Copy Git Clone Command"
+                  >
+                    {copiedClone ? <CheckCheck className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', marginTop: '4px' }}>
+                  <div>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#38BDF8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Setup Commands:
+                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
+                      {(currentProject?.automatedHandoverReport?.onboardingGuide?.setupCommands || ['npm install', 'cp .env.example .env', 'npm run dev']).map((cmd, idx) => (
+                        <code key={idx} style={{ fontSize: '11.5px', color: '#CBD5E1', backgroundColor: '#020617', padding: '3px 8px', borderRadius: '4px', fontFamily: 'monospace' }}>
+                          $ {cmd}
+                        </code>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#38BDF8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Immediate Sprint Priorities:
+                    </span>
+                    <ul className="pn-intel-steps-list" style={{ marginTop: '6px' }}>
+                      {(currentProject?.automatedHandoverReport?.onboardingGuide?.recommendedNextSteps || [
+                        `Checkout predecessor branch "${handoverData.gitBranch}"`,
+                        `Review verified deliverables before altering database schemas`,
+                        `Pick up pending backlog tasks from technical debt quadrant`
+                      ]).map((step, idx) => (
+                        <li key={idx}>{step}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
             {/* 4 Quadrants: Deliverables, Debt, Repository, Faculty Notes */}

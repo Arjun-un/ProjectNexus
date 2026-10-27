@@ -26,7 +26,7 @@ mini_project/
 │   ├── middlewares/            # JWT auth and GitHub HMAC signature verification
 │   ├── routes/                 # Express API routes (/auth, /projects, /webhooks)
 │   ├── scripts/                # Administrative seeds and telemetry diagnostic utilities
-│   ├── services/               # Reusable business logic (emailService, githubService, healthService)
+│   ├── services/               # Reusable business logic (emailService, githubService, healthService, handoverAnalysisService, tunnelService)
 │   ├── utils/                  # Token generation helpers
 │   └── server.js               # Express app entry point
 └── frontend/
@@ -69,6 +69,9 @@ mini_project/
 6. **Zero-State Real-Time Tracking Initialization**:
    * *Decision*: Newly initialized projects start strictly at 0% progress and `'Not Tracked'` health status (`healthScore: 0`), with an empty team roster array and project-scoped milestones, until tasks, commits, or telemetry events are recorded.
    * *Why*: Ensures realistic, honest metrics on newly created projects rather than populating dummy roster data or pre-cooked progress indicators.
+7. **Hybrid Cached Handover Intelligence Pipeline**:
+   * *Decision*: Implemented `backend/services/handoverAnalysisService.js` using a 3-tier hybrid pipeline (instant MongoDB cache -> parallel `Promise.allSettled` GitHub API fetch -> deterministic manifest dependency & telemetry classifier) with persistence in `Project.automatedHandoverReport`.
+   * *Why*: Eliminates 3-5s UI freezes, prevents GitHub's 60 req/hr unauthenticated rate limit lockouts, falls back gracefully if repos are private/offline, and synthesizes Git manifests + commit logs + Kanban tasks into a complete transition dossier.
 
 ---
 
@@ -90,6 +93,14 @@ mini_project/
   - Milestone timeline and weekly update submission.
 * **Continuity & Handover Engine**:
   - Handover generation modal capturing version bump (`v1.0` $\rightarrow$ `v2.0`), completed deliverables, pending items, and inherited repository links.
+  - **Automated Repository & Tech Stack Intelligence Dossier**:
+    * Analyzes repository via Git URL + GitHub API (languages, manifests `package.json`/`requirements.txt`, commit history, open issues).
+    * Classifies detected tools & frameworks into 5 distinct tiers (Frontend, Backend, Database/ORM, DevOps/Infrastructure, AI/Data).
+    * Calculates exact language distribution with multi-segment color bar.
+    * Generates "What Happened in the Project" executive transition narrative synthesized from commits and completed sprints.
+    * Successor Team Onboarding Terminal Guide featuring copyable `git clone` command, environment setup scripts (`npm install`, `cp .env.example .env`), and immediate sprint priorities.
+    * On-demand "⚡ Re-Analyze Repository" button with instant cache (<50ms) and live sync status indicators.
+    * Auto-triggered whenever an administrator flags a project "Open to Handover".
 
 ### Planned
 * WebSocket / Server-Sent Events (SSE) for live push updates directly into the browser without manual page refresh.

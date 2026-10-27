@@ -802,3 +802,339 @@
   margin: 0;
 }
 
+/* ══════════════════════════════════════════════════════ */
+/* AUTOMATED REPOSITORY & TECH STACK INTELLIGENCE SECTION */
+/* ══════════════════════════════════════════════════════ */
+
+.pn-intel-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.pn-intel-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #3B82F6 0%, #6366F1 50%, #8B5CF6 100%);
+}
+
+.pn-intel-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pn-intel-title-wrap h2 {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0F172A;
+  margin: 4px 0 2px 0;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pn-intel-title-wrap p {
+  font-size: 12.5px;
+  color: #64748B;
+  margin: 0;
+}
+
+.pn-intel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pn-intel-source-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background-color: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pn-intel-source-tag.github {
+  background-color: #EEF2FF;
+  border-color: #C7D2FE;
+  color: #4338CA;
+}
+
+.pn-intel-btn-reanalyze {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+  color: #FFFFFF;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+
+.pn-intel-btn-reanalyze:hover:not(:disabled) {
+  background: #000000;
+  transform: translateY(-1px);
+}
+
+.pn-intel-btn-reanalyze:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Executive Narrative Callout */
+.pn-intel-narrative-box {
+  background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+  border: 1px solid #E2E8F0;
+  border-left: 4px solid #3B82F6;
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pn-intel-narrative-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pn-intel-narrative-title {
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #1E40AF;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pn-intel-narrative-text {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #1E293B;
+  margin: 0;
+}
+
+/* Languages Bar */
+.pn-intel-lang-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pn-intel-lang-bar {
+  display: flex;
+  height: 10px;
+  width: 100%;
+  border-radius: 9999px;
+  overflow: hidden;
+  background-color: #F1F5F9;
+  border: 1px solid #E2E8F0;
+}
+
+.pn-intel-lang-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.pn-intel-lang-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pn-intel-lang-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.pn-intel-lang-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Tools & Frameworks Matrix */
+.pn-intel-matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.pn-intel-category-col {
+  background-color: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pn-intel-category-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pn-intel-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pn-intel-chip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background-color: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  color: #0F172A;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pn-intel-chip.frontend {
+  border-color: #BFDBFE;
+  color: #1D4ED8;
+  background-color: #EFF6FF;
+}
+
+.pn-intel-chip.backend {
+  border-color: #DDD6FE;
+  color: #6D28D9;
+  background-color: #F5F3FF;
+}
+
+.pn-intel-chip.database {
+  border-color: #A7F3D0;
+  color: #047857;
+  background-color: #ECFDF5;
+}
+
+.pn-intel-chip.devops {
+  border-color: #FED7AA;
+  color: #C2410C;
+  background-color: #FFF7ED;
+}
+
+.pn-intel-chip.aiData {
+  border-color: #FBCFE8;
+  color: #BE185D;
+  background-color: #FDF2F8;
+}
+
+/* Onboarding Guide Block */
+.pn-intel-onboarding-box {
+  background-color: #0F172A;
+  border-radius: 12px;
+  padding: 18px 22px;
+  color: #F8FAFC;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pn-intel-onboarding-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pn-intel-onboarding-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #38BDF8;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  letter-spacing: 0.02em;
+}
+
+.pn-intel-cmd-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background-color: #020617;
+  border: 1px solid #1E293B;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12.5px;
+  color: #93C5FD;
+}
+
+.pn-intel-copy-btn {
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+
+.pn-intel-copy-btn:hover {
+  color: #FFFFFF;
+}
+
+.pn-intel-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #CBD5E1;
+  line-height: 1.5;
+}
+
+.pn-intel-steps-list li {
+  margin-left: 18px;
+}
+
+

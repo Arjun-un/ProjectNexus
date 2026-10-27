@@ -254,6 +254,45 @@ const projectSchema = new mongoose.Schema({
     type: Number,
     default: 1
   },
+  automatedHandoverReport: {
+    lastAnalyzedAt: { type: Date, default: null },
+    source: { type: String, default: 'hybrid' },
+    repoInfo: {
+      owner: { type: String, default: '' },
+      repo: { type: String, default: '' },
+      cleanUrl: { type: String, default: '' },
+      defaultBranch: { type: String, default: 'main' },
+      lastCommitSha: { type: String, default: '' },
+      totalCommitsDetected: { type: Number, default: 0 },
+      openIssuesCount: { type: Number, default: 0 }
+    },
+    techStackIntelligence: {
+      languages: [{
+        name: { type: String },
+        percentage: { type: Number },
+        color: { type: String }
+      }],
+      frameworks: {
+        frontend: [{ type: String }],
+        backend: [{ type: String }],
+        database: [{ type: String }],
+        devops: [{ type: String }],
+        libraries: [{ type: String }]
+      },
+      runtimeEnvironment: { type: String, default: 'Node.js & Modern Web Stack' },
+      detectedDependenciesCount: { type: Number, default: 0 }
+    },
+    executiveSummary: { type: String, default: '' },
+    completedModules: [{ type: String }],
+    pendingModules: [{ type: String }],
+    knownIssues: [{ type: String }],
+    onboardingGuide: {
+      cloneCommand: { type: String, default: '' },
+      setupCommands: [{ type: String }],
+      keyFiles: [{ type: String }],
+      recommendedNextSteps: [{ type: String }]
+    }
+  },
   timeline: [timelineEventSchema],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

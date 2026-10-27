@@ -5,6 +5,7 @@ const TeamDB = require('../db/TeamDB');
 const { sendProjectInvitationEmail } = require('../services/emailService');
 const { parseRepoUrl, validateAndBackfillRepo } = require('../services/githubService');
 const { recalculateHealthScore } = require('../services/healthService');
+const { analyzeProjectForHandover } = require('../services/handoverAnalysisService');
 
 // Helper to get department code
 const getDepartmentCode = (dept) => {
@@ -1677,6 +1678,18 @@ exports.toggleProjectHandoverStatus = async (req, res) => {
 
     await project.save();
 
+    // Auto-generate comprehensive handover report from Git repository and database telemetry in background
+    if (project.isOpenToHandover) {
+      try {
+        const analysisResult = await analyzeProjectForHandover(project._id, { forceRefresh: true });
+        if (analysisResult?.report) {
+          project.automatedHandoverReport = analysisResult.report;
+        }
+      } catch (analErr) {
+        console.warn('[Project Controller] Auto-handover analysis note:', analErr.message);
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: project.isOpenToHandover
@@ -1689,6 +1702,39 @@ exports.toggleProjectHandoverStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update handover status',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @route   POST /api/projects/:id/analyze-handover
+ * @desc    Analyze repository and telemetry to generate handover intelligence report
+ * @access  Public / Admin
+ */
+exports.analyzeProjectHandoverEndpoint = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { forceRefresh } = req.body || {};
+
+    const project = await findProjectByIdOrCustomId(id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    const result = await analyzeProjectForHandover(project._id, { forceRefresh: Boolean(forceRefresh) });
+
+    res.status(200).json({
+      success: true,
+      cached: result.cached,
+      message: result.cached ? 'Handover report loaded from cache' : 'Repository and telemetry analyzed successfully',
+      data: result.report
+    });
+  } catch (error) {
+    console.error('Error analyzing project for handover:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate handover analysis report',
       error: error.message
     });
   }

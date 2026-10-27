@@ -21,7 +21,8 @@ const {
   executeProjectHandover,
   toggleProjectHandoverStatus,
   getOpenHandoverProjects,
-  postTeamStatusUpdate
+  postTeamStatusUpdate,
+  analyzeProjectHandoverEndpoint
 } = require('../controllers/projectController');
 
 // Routes for projects
@@ -45,6 +46,7 @@ router.post('/:id/regenerate-code', regenerateAccessCode);
 router.post('/:id/revoke-code', revokeAccessCode);
 router.post('/:id/send-invite', sendProjectInvite);
 router.post('/:id/handover', executeProjectHandover);
+router.post('/:id/analyze-handover', analyzeProjectHandoverEndpoint);
 
 // GitHub Webhook & Telemetry Routes
 router.post('/:id/github/generate-webhook', generateGithubWebhook);

@@ -129,7 +129,7 @@ export default function App() {
   const stagnantCount = projects.filter(p => p.lastUpdateDaysAgo >= 7 && p.status === 'active').length;
   const overdueCount = projects.filter(p => p.hasOverdueMilestones).length;
 
-  const activeProject = projects.find(p => p.id === activeProjectId) || projects[0];
+  const activeProject = projects.find(p => p.id === activeProjectId || p.projectId === activeProjectId || p._id === activeProjectId) || projects[0];
 
   // Select project and switch to workspace
   const handleSelectProject = (projectId) => {
@@ -146,10 +146,11 @@ export default function App() {
   // Confirm and execute versioned handover
   const handleConfirmHandover = (handoverData) => {
     const updatedVersionNumber = (selectedProjectForHandover?.currentVersionNumber || 1) + 1;
+    const targetId = selectedProjectForHandover?.id || selectedProjectForHandover?.projectId || selectedProjectForHandover?._id || activeProjectId;
     
     // Update the project state
     setProjects(prev => prev.map(p => {
-      if (p.id === (selectedProjectForHandover?.id || activeProjectId)) {
+      if (p.id === targetId || p.projectId === targetId || p._id === targetId) {
         return {
           ...p,
           currentVersionNumber: updatedVersionNumber,
