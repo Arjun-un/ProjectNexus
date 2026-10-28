@@ -72,6 +72,9 @@ mini_project/
 7. **Hybrid Cached Handover Intelligence Pipeline**:
    * *Decision*: Implemented `backend/services/handoverAnalysisService.js` using a 3-tier hybrid pipeline (instant MongoDB cache -> parallel `Promise.allSettled` GitHub API fetch -> deterministic manifest dependency & telemetry classifier) with persistence in `Project.automatedHandoverReport`.
    * *Why*: Eliminates 3-5s UI freezes, prevents GitHub's 60 req/hr unauthenticated rate limit lockouts, falls back gracefully if repos are private/offline, and synthesizes Git manifests + commit logs + Kanban tasks into a complete transition dossier.
+8. **Dynamic Task-Driven Progress & Health Synchronization**:
+   * *Decision*: Replaced arbitrary progress toggle fallbacks with real-time MongoDB task progression (`completedTasks / totalTasks * 100`).
+   * *Why*: Eliminates fake progress indicators (e.g. arbitrary 75%) and prevents newly created active projects from receiving false "At Risk" penalties while in their onboarding sprint.
 
 ---
 
@@ -83,16 +86,28 @@ mini_project/
   - Deletion and archiving with full telemetry event cascading cleanup.
   - One-click Gmail SMTP email dispatch of project invitations and access codes.
   - Comprehensive Project Detail View with balanced two-column enterprise layout, sleek full-width Webhook Ingestion Payload URL bar, dedicated academic mentorship card, and normalized governance audit trail.
+  - Dedicated **Problem Statement & Scope** and **Student Project Story, Architecture & Executive Summary** governance panels in `ProjectDetailView` rendering student-submitted problem statements, technical briefs, and real-time technology stack chips without static dummy fallbacks.
   - Critical Projects table with clean human-readable date formatting and responsive Action column alignment preventing Inspect button clipping.
+  - **Engineering Departments Governance View (`DepartmentsView.jsx`)**: Comprehensive institutional academic division overview with real-time KPI metrics, department cards (CSE, ECE, IT, MECH, EEE) featuring branch branding icons, active/completed/at-risk status breakdowns, average progress bars, health scores, faculty mentorship rosters, interactive slide-over project drawer, and cross-departmental comparative performance matrix table.
+  - **Governance & Console Settings Page Redesign**: Enterprise balanced 2-column layout wrapped in `.admin-content-container` (full 32px padding, responsive grid), active administrator session card with JWT HS256 details, animated iOS-style policy toggles (stagnancy alerts, access code enforcer, auto-archiving, webhook HMAC verification), live infrastructure gateways status card, and clean session termination danger zone with quick Log Out controls.
 * **Team Workspace**:
   - Direct team onboarding via human Project ID + Team Access Code.
   - Team Directory & Repository view synced with MongoDB collection `teamdb`.
-  - Student-authored Project Brief, Live Status updates, and individual Member Contribution management.
+  - Student-authored **Project Story & Executive Architecture Summary**, **Problem Statement & Scope**, and dynamic **Technology Stack** chip management with one-click inline editing, quick suggestions, and full modal integration.
+  - Bidirectional persistence across `Project` and `teamdb` schemas ensuring student stories, problem statements, and technologies persist directly to MongoDB Atlas.
   - In-browser webhook simulation and real-time GitHub webhook payload configuration (`/api/webhooks/repo/:id`) with zero-config auto-generation using the system's static public domain (`support-shy-overcook.ngrok-free.dev`).
   - Kanban task board with status workflows (`todo`, `in_progress`, `under_review`, `done`).
   - Milestone timeline and weekly update submission.
 * **Continuity & Handover Engine**:
-  - Handover generation modal capturing version bump (`v1.0` $\rightarrow$ `v2.0`), completed deliverables, pending items, and inherited repository links.
+  - **Full-Stack Versioned Handover Execution (`POST /api/projects/:id/handover`)**:
+    * Atomic version incrementation (`v1.0` $\rightarrow$ `v2.0`), previous team preservation, and new `NEXUS-XXXX` access code provisioning.
+    * Automatically generates immutable handover records in `project.handoverHistory` and updates `TeamDB`.
+    * Automatically converts inherited technical debt and pending modules into actionable `todo` tasks directly in the continuation team's MongoDB Kanban board.
+  - **Official Handover Document & PDF Certificate (`OfficialHandoverDocumentModal.jsx`)**:
+    * Printable institutional transition certificate with official Packet ID (`HO-...`), verified deliverables list, technical debt matrix, repository branch specs, and faculty mentor directives.
+    * Clean `@media print` styling for 1-click browser PDF generation or physical paper archiving.
+  - **Continuation Workspace Onboarding Experience**:
+    * Dedicated **v2.0 Continuation Welcome Onboarding Modal** greeting incoming cohorts with their preserved baseline, new team access credentials, and inherited Kanban tasks.
   - **Automated Repository & Tech Stack Intelligence Dossier**:
     * Analyzes repository via Git URL + GitHub API (languages, manifests `package.json`/`requirements.txt`, commit history, open issues).
     * Classifies detected tools & frameworks into 5 distinct tiers (Frontend, Backend, Database/ORM, DevOps/Infrastructure, AI/Data).

@@ -102,6 +102,16 @@ const projectSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
+  problemStatement: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  projectStory: {
+    type: String,
+    default: '',
+    trim: true
+  },
   techStack: [{
     type: String,
     trim: true
@@ -254,6 +264,32 @@ const projectSchema = new mongoose.Schema({
     type: Number,
     default: 1
   },
+  previousTeam: {
+    name: { type: String, default: '' },
+    version: { type: Number, default: 1 },
+    discontinuedAt: { type: Number, default: 0 },
+    reason: { type: String, default: '' },
+    discontinuedDate: { type: Date, default: null }
+  },
+  handoverHistory: [{
+    packetId: { type: String, required: true },
+    fromVersion: { type: Number, default: 1 },
+    toVersion: { type: Number, default: 2 },
+    fromTeamName: { type: String, default: '' },
+    toTeamName: { type: String, default: '' },
+    discontinuationReason: { type: String, default: '' },
+    progressAtHandover: { type: Number, default: 0 },
+    completedModules: [{ type: String }],
+    pendingModules: [{ type: String }],
+    knownIssues: [{ type: String }],
+    facultyNotes: { type: String, default: '' },
+    hardwareNotes: { type: String, default: '' },
+    githubUrl: { type: String, default: '' },
+    archiveBranch: { type: String, default: 'v1.0-handover-archive' },
+    pinnedCommitSha: { type: String, default: '' },
+    newAccessCode: { type: String, default: '' },
+    transferredAt: { type: Date, default: Date.now }
+  }],
   automatedHandoverReport: {
     lastAnalyzedAt: { type: Date, default: null },
     source: { type: String, default: 'hybrid' },

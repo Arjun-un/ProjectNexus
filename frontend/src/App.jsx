@@ -39,6 +39,7 @@ export default function App() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isHandoverModalOpen, setIsHandoverModalOpen] = useState(false);
   const [selectedProjectForHandover, setSelectedProjectForHandover] = useState(null);
+  const [handoverJustExecuted, setHandoverJustExecuted] = useState(false);
 
   // ── Restore admin session from localStorage on mount ──
   useEffect(() => {
@@ -144,36 +145,68 @@ export default function App() {
   };
 
   // Confirm and execute versioned handover
-  const handleConfirmHandover = (handoverData) => {
+  const handleConfirmHandover = async (handoverData) => {
     const updatedVersionNumber = (selectedProjectForHandover?.currentVersionNumber || 1) + 1;
     const targetId = selectedProjectForHandover?.id || selectedProjectForHandover?.projectId || selectedProjectForHandover?._id || activeProjectId;
     
-    // Update the project state
+    // Attempt backend persistence to MongoDB Atlas
+    try {
+      const res = await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(targetId)}/handover`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason: handoverData.reason,
+          completedModules: handoverData.completed || handoverData.completedModules,
+          pendingModules: handoverData.pending || handoverData.pendingModules,
+          knownIssues: handoverData.issues || handoverData.knownIssues,
+          facultyNotes: handoverData.facultyNotes,
+          hardwareNotes: handoverData.hardwareNotes,
+          newTeamName: handoverData.newTeamName,
+          newLeadEmail: handoverData.newLeadEmail,
+          pinnedCommitSha: handoverData.pinnedCommitSha
+        })
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const updatedProject = json.data.project;
+          const backendHandoverRecord = json.data.handoverRecord;
+
+          setProjects(prev => prev.map(p => 
+            (p.projectId === targetId || p._id === targetId || p.id === targetId) ? updatedProject : p
+          ));
+          setHandoverRecord(backendHandoverRecord);
+          setActiveProjectId(updatedProject.projectId || updatedProject._id);
+          setHandoverJustExecuted(true);
+          navigateTo('workspace');
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Backend handover execution network error; falling back to optimistic local update:', err);
+    }
+
+    // Fallback optimistic update
     setProjects(prev => prev.map(p => {
       if (p.id === targetId || p.projectId === targetId || p._id === targetId) {
         return {
           ...p,
           currentVersionNumber: updatedVersionNumber,
           isContinuation: true,
-          status: 'active',
-          currentProgress: p.currentProgress,
+          status: 'Active',
           team: {
             name: handoverData.newTeamName,
-            lead: { name: handoverData.newLeadEmail.split('@')[0], email: handoverData.newLeadEmail, rollNo: 'CS24B001' },
-            members: [
-              { name: 'Continuation Member 1', email: 'mem1@college.edu', rollNo: 'CS24B002', tasksAssigned: 2 },
-              { name: 'Continuation Member 2', email: 'mem2@college.edu', rollNo: 'CS24B003', tasksAssigned: 1 }
-            ]
+            lead: { name: (handoverData.newLeadEmail || 'lead').split('@')[0], email: handoverData.newLeadEmail, rollNo: 'CS24B001' },
+            members: []
           },
           previousTeam: {
             name: p.team?.name || 'Previous Team',
             version: p.currentVersionNumber || 1,
-            discontinuedAt: p.currentProgress,
+            discontinuedAt: p.progress || 45,
             reason: handoverData.reason,
             discontinuedDate: new Date().toISOString().split('T')[0]
-          },
-          lastUpdateDaysAgo: 0,
-          lastUpdateDate: new Date().toISOString().split('T')[0]
+          }
         };
       }
       return p;
@@ -181,19 +214,20 @@ export default function App() {
 
     // Update handover record
     setHandoverRecord({
-      projectId: selectedProjectForHandover?.id || activeProjectId,
+      projectId: targetId,
       fromVersion: selectedProjectForHandover?.currentVersionNumber || 1,
       toVersion: updatedVersionNumber,
-      fromTeamName: selectedProjectForHandover?.team?.name || 'Team Alpha',
+      fromTeamName: selectedProjectForHandover?.team?.name || 'Previous Student Team',
       toTeamName: handoverData.newTeamName,
       discontinuationReason: handoverData.reason,
       transferDate: new Date().toISOString().split('T')[0],
-      progressAtHandover: selectedProjectForHandover?.currentProgress || 45,
-      completedModules: handoverData.completed,
-      pendingModules: handoverData.pending,
-      knownIssues: handoverData.issues,
+      progressAtHandover: selectedProjectForHandover?.progress || 45,
+      completedModules: handoverData.completed || handoverData.completedModules,
+      pendingModules: handoverData.pending || handoverData.pendingModules,
+      knownIssues: handoverData.issues || handoverData.knownIssues,
       facultyGuidanceNotes: handoverData.facultyNotes,
-      githubUrl: selectedProjectForHandover?.githubUrl || 'https://github.com/nexus-college/smart-attendance-system',
+      hardwareNotes: handoverData.hardwareNotes,
+      githubUrl: selectedProjectForHandover?.githubUrl || 'https://github.com/Arjun-un/ProjectNexus.git',
       documents: [
         { title: 'Archived Handover Brief v1.0', url: '#' },
         { title: 'Inherited SRS & Module Guide', url: '#' }
@@ -214,6 +248,7 @@ export default function App() {
 
     // Switch view directly into the continuation workspace!
     setActiveProjectId(selectedProjectForHandover?.id || activeProjectId);
+    setHandoverJustExecuted(true);
     navigateTo('workspace');
   };
 
@@ -304,7 +339,6 @@ export default function App() {
           }}
           onLaunchContinuationWorkspace={(handoverData) => {
             handleConfirmHandover(handoverData);
-            navigateTo('workspace');
           }}
         />
       ) : currentView === 'workspace-login' ? (
@@ -340,6 +374,8 @@ export default function App() {
           weeklyUpdates={weeklyUpdates}
           setWeeklyUpdates={setWeeklyUpdates}
           handoverRecord={handoverRecord}
+          handoverJustExecuted={handoverJustExecuted}
+          onDismissHandoverJustExecuted={() => setHandoverJustExecuted(false)}
           activityLogs={activityLogs}
           onTriggerHandover={() => handleOpenHandoverModal(activeProject)}
           onHome={() => navigateTo('home')}

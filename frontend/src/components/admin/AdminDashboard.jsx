@@ -19,13 +19,18 @@ import {
   CheckCircle2,
   LogOut,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  Mail,
+  Server,
+  Database,
+  Lock
 } from 'lucide-react';
 
 import DashboardHomeView from './DashboardHomeView';
 import ProjectListView from './ProjectListView';
 import ProjectDetailView from './ProjectDetailView';
 import TeamsDirectoryView from './TeamsDirectoryView';
+import DepartmentsView from './DepartmentsView';
 import CreateProjectModal from './CreateProjectModal';
 import SendInviteModal from './SendInviteModal';
 import './AdminDashboard.css';
@@ -193,6 +198,12 @@ export default function AdminDashboard({ adminUser, onLogout, onOpenHandover }) 
   const [copiedCode, setCopiedCode] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Governance settings policy toggles
+  const [stagnancyAlerts, setStagnancyAlerts] = useState(true);
+  const [accessCodeEnforcer, setAccessCodeEnforcer] = useState(true);
+  const [autoArchiving, setAutoArchiving] = useState(true);
+  const [hmacVerification, setHmacVerification] = useState(true);
+
   // Fetch from live backend if available
   const fetchBackendData = useCallback(async () => {
     setIsRefreshing(true);
@@ -222,6 +233,14 @@ export default function AdminDashboard({ adminUser, onLogout, onOpenHandover }) 
   const iotCount = projects.filter(p => p.category === 'IoT').length;
   const hardwareCount = projects.filter(p => p.category === 'Hardware').length;
   const atRiskCount = projects.filter(p => p.health === 'Critical' || p.health === 'At Risk' || p.status === 'At Risk').length;
+  const departmentsCount = new Set([
+    'Computer Science & Engineering',
+    'Electronics & Communication',
+    'Information Technology',
+    'Mechanical Engineering',
+    'Electrical & Electronics',
+    ...projects.map(p => p.department).filter(Boolean)
+  ]).size;
 
   // Critical projects needing attention (lowest healthScore)
   const criticalProjects = [...projects]
@@ -355,7 +374,7 @@ export default function AdminDashboard({ adminUser, onLogout, onOpenHandover }) 
     const pid = project.projectId || project._id;
     const isAlreadyCompleted = project.status === 'Completed';
     const nextStatus = isAlreadyCompleted ? 'Active' : 'Completed';
-    const nextProgress = isAlreadyCompleted ? (project.progress && project.progress < 100 ? project.progress : 75) : 100;
+    const nextProgress = isAlreadyCompleted ? (project.progress && project.progress < 100 ? project.progress : 0) : 100;
 
     // Optimistically update local projects state
     setProjects(prev => prev.map(p => {
@@ -584,6 +603,9 @@ export default function AdminDashboard({ adminUser, onLogout, onOpenHandover }) 
               <Building2 size={16} />
               <span>Departments</span>
             </div>
+            <span className="admin-nav-count-badge">
+              {departmentsCount}
+            </span>
           </button>
 
           <div className="admin-sidebar-group-label">
@@ -866,37 +888,22 @@ export default function AdminDashboard({ adminUser, onLogout, onOpenHandover }) 
               getHealthBadge={getHealthBadge}
             />
           ) : currentSection === 'departments' ? (
-            <div className="space-y-6 max-w-7xl mx-auto">
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900">Engineering Departments</h1>
-                <p className="text-xs text-slate-500 mt-1">Institutional academic project distributions by branch.</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[
-                  'Computer Science & Engineering',
-                  'Electronics & Communication',
-                  'Information Technology',
-                  'Mechanical Engineering',
-                  'Electrical & Electronics'
-                ].map((dept, i) => {
-                  const count = projects.filter(p => p.department === dept).length;
-                  return (
-                    <div key={i} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex items-center justify-between">
-                      <div>
-                        <h3 className="font-bold text-slate-900 text-sm">{dept}</h3>
-                        <p className="text-xs text-slate-500 mt-0.5">{count} Registered Projects</p>
-                      </div>
-                      <div className="text-xl font-bold font-mono text-blue-600">{count}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <DepartmentsView
+              projects={projects}
+              onSelectProject={(id) => setSelectedProjectId(id)}
+              onNavigateToProjectsWithFilter={(deptName) => {
+                setFilterDepartment(deptName);
+                setCurrentSection('projects');
+              }}
+              getCategoryBadge={getCategoryBadge}
+              getHealthBadge={getHealthBadge}
+              getStatusBadge={getStatusBadge}
+            />
           ) : currentSection === 'analytics' ? (
-            <div className="space-y-6 max-w-7xl mx-auto">
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900">Analytics & Institutional Metrics</h1>
-                <p className="text-xs text-slate-500 mt-1">Velocity, completion rates, and cross-departmental benchmarks.</p>
+            <div className="admin-content-container">
+              <div className="admin-page-header">
+                <h1 className="admin-page-title">Analytics & Institutional Metrics</h1>
+                <p className="admin-page-subtitle">Velocity, completion rates, and cross-departmental benchmarks.</p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
@@ -920,10 +927,10 @@ export default function AdminDashboard({ adminUser, onLogout, onOpenHandover }) 
               </div>
             </div>
           ) : currentSection === 'activity' ? (
-            <div className="space-y-6 max-w-7xl mx-auto">
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900">Institutional Activity Audit Trail</h1>
-                <p className="text-xs text-slate-500 mt-1">Immutable audit logs across project lifecycles.</p>
+            <div className="admin-content-container">
+              <div className="admin-page-header">
+                <h1 className="admin-page-title">Institutional Activity Audit Trail</h1>
+                <p className="admin-page-subtitle">Immutable audit logs across project lifecycles.</p>
               </div>
               <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-4">
                 {recentActivities.map((act, i) => (
@@ -943,33 +950,272 @@ export default function AdminDashboard({ adminUser, onLogout, onOpenHandover }) 
               </div>
             </div>
           ) : (
-            <div className="space-y-6 max-w-3xl mx-auto">
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900">Governance Settings</h1>
-                <p className="text-xs text-slate-500 mt-1">Configure institutional parameters and access code security policies.</p>
+            /* ================================================== */
+            /* GOVERNANCE & CONSOLE SETTINGS VIEW                 */
+            /* ================================================== */
+            <div className="admin-content-container">
+              
+              {/* Page Header */}
+              <div className="admin-page-header">
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#2563EB', backgroundColor: '#EFF6FF', padding: '4px 10px', borderRadius: '9999px', border: '1px solid #DBEAFE', width: 'fit-content' }}>
+                  <ShieldCheck size={13} />
+                  <span>Institutional Administration & Security</span>
+                </div>
+                <h1 className="admin-page-title" style={{ marginTop: '8px' }}>Governance & Console Settings</h1>
+                <p className="admin-page-subtitle">
+                  Configure institutional parameters, security enforcers, telemetry verification rules, and administrator session controls.
+                </p>
               </div>
-              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-4 text-xs">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <div>
-                    <div className="font-bold text-slate-900">Automatic Stagnancy Alerts</div>
-                    <p className="text-slate-500">Flag projects inactive for more than 7 days as At Risk.</p>
+
+              {/* 2-Column Responsive Settings Layout */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '24px', alignItems: 'start' }}>
+                
+                {/* LEFT COLUMN: Administrator Session, Security Credentials & Danger Zone */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  
+                  {/* 1. Admin Profile Card */}
+                  <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #F1F5F9' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748B', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Users size={16} className="text-blue-600" />
+                        <span>Active Administrator Session</span>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', backgroundColor: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10B981' }} />
+                        <span>Active Session</span>
+                      </span>
+                    </div>
+
+                    {/* Profile Identity Block */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+                      <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', fontWeight: 800, boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)', flexShrink: 0 }}>
+                        {adminUser?.name ? adminUser.name[0].toUpperCase() : 'S'}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                          {adminUser?.name || 'System Administrator'}
+                        </h3>
+                        <div style={{ fontSize: '12.5px', color: '#64748B', fontFamily: 'monospace', marginTop: '2px', wordBreak: 'break-all' }}>
+                          {adminUser?.email || 'admin@projectnexus.edu'}
+                        </div>
+                        <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#4338CA', backgroundColor: '#EEF2FF', border: '1px solid #C7D2FE', padding: '2px 8px', borderRadius: '6px' }}>
+                            <ShieldCheck size={12} />
+                            <span>Governance Clearance L3</span>
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#94A3B8' }}>· Institutional Admin</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Session Metadata Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', padding: '14px', backgroundColor: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', fontSize: '12px', marginBottom: '20px' }}>
+                      <div>
+                        <span style={{ color: '#64748B', fontSize: '11px' }}>Authentication Token:</span>
+                        <div style={{ fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>JWT (HS256)</div>
+                      </div>
+                      <div>
+                        <span style={{ color: '#64748B', fontSize: '11px' }}>Token Validity:</span>
+                        <div style={{ fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>7 Days Rolling</div>
+                      </div>
+                      <div>
+                        <span style={{ color: '#64748B', fontSize: '11px' }}>Governance Scope:</span>
+                        <div style={{ fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>All Branches</div>
+                      </div>
+                      <div>
+                        <span style={{ color: '#64748B', fontSize: '11px' }}>Audit Logging:</span>
+                        <div style={{ fontWeight: 700, color: '#16A34A', marginTop: '2px' }}>Real-time Active</div>
+                      </div>
+                    </div>
+
+                    {/* Quick Logout Button in Profile Card */}
+                    <button
+                      onClick={() => onLogout && onLogout()}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '11px 16px', borderRadius: '10px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontSize: '13px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s ease' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#FEE2E2'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#FEF2F2'; }}
+                      type="button"
+                    >
+                      <LogOut size={15} />
+                      <span>Sign Out of Administrator Session</span>
+                    </button>
                   </div>
-                  <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
-                </div>
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <div>
-                    <div className="font-bold text-slate-900">Access Code Format Enforcer</div>
-                    <p className="text-slate-500">Generate 4-character alphanumeric codes prefixed with NEXUS-.</p>
+
+                  {/* 2. Session Termination Danger Zone */}
+                  <div style={{ backgroundColor: '#FFF5F5', border: '1.5px solid #FED7D7', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(220, 38, 38, 0.05)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#991B1B' }}>
+                      <AlertTriangle size={18} />
+                      <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>
+                        Session Termination & Security Revocation
+                      </h3>
+                    </div>
+                    <p style={{ fontSize: '12.5px', color: '#7F1D1D', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+                      Signing out immediately invalidates your JWT bearer authorization token on this device, purges cached console state, and returns you to the institutional gateway.
+                    </p>
+                    <button
+                      onClick={() => onLogout && onLogout()}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', backgroundColor: '#DC2626', color: '#FFFFFF', border: 'none', fontSize: '13px', fontWeight: 700, cursor: 'pointer', transition: 'background 0.15s', boxShadow: '0 2px 8px rgba(220, 38, 38, 0.25)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#B91C1C'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#DC2626'; }}
+                      type="button"
+                    >
+                      <LogOut size={15} />
+                      <span>Terminate Session & Log Out</span>
+                    </button>
                   </div>
-                  <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
+
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-bold text-slate-900">L3 Multi-Factor Security Check</div>
-                    <p className="text-slate-500">Require administrator JWT token re-authentication for code revocation.</p>
+
+                {/* RIGHT COLUMN: Governance Security Policies & Infrastructure Gateways */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  
+                  {/* 3. Institutional Policy Controls Card */}
+                  <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', paddingBottom: '14px', borderBottom: '1px solid #F1F5F9' }}>
+                      <div>
+                        <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Lock size={16} className="text-blue-600" />
+                          <span>Institutional Tracking & Governance Policies</span>
+                        </h3>
+                        <p style={{ fontSize: '12px', color: '#64748B', margin: '3px 0 0 0' }}>
+                          Autonomous security and health tracking rules enforced across college capstones.
+                        </p>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563EB', backgroundColor: '#EFF6FF', padding: '3px 8px', borderRadius: '6px' }}>
+                        4 Active Rules
+                      </span>
+                    </div>
+
+                    {/* Interactive Toggle List */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      
+                      {/* Toggle 1: Stagnancy Alerts */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', padding: '14px 16px', borderRadius: '12px', backgroundColor: stagnancyAlerts ? '#F8FAFC' : '#FFFFFF', border: '1px solid #E2E8F0', transition: 'background-color 0.15s ease' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>
+                            Automatic Stagnancy Health Scoring
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#64748B', marginTop: '3px', lineHeight: 1.4 }}>
+                            Flag capstone projects with zero telemetry activity or commit updates for more than 7 days as <strong style={{ color: '#DC2626' }}>At Risk</strong>.
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setStagnancyAlerts(!stagnancyAlerts)}
+                          style={{ width: '44px', height: '24px', borderRadius: '9999px', backgroundColor: stagnancyAlerts ? '#2563EB' : '#CBD5E1', position: 'relative', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', flexShrink: 0, padding: 0 }}
+                          title="Toggle Automatic Stagnancy Alerts"
+                        >
+                          <span style={{ position: 'absolute', top: '2px', left: stagnancyAlerts ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: '#FFFFFF', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                        </button>
+                      </div>
+
+                      {/* Toggle 2: Access Code Enforcer */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', padding: '14px 16px', borderRadius: '12px', backgroundColor: accessCodeEnforcer ? '#F8FAFC' : '#FFFFFF', border: '1px solid #E2E8F0', transition: 'background-color 0.15s ease' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>
+                            Access Code Cryptographic Enforcer
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#64748B', marginTop: '3px', lineHeight: 1.4 }}>
+                            Enforce 4-character cryptographic tokens prefixed with <strong style={{ fontFamily: 'monospace', color: '#2563EB' }}>NEXUS-</strong> for student team onboarding.
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAccessCodeEnforcer(!accessCodeEnforcer)}
+                          style={{ width: '44px', height: '24px', borderRadius: '9999px', backgroundColor: accessCodeEnforcer ? '#2563EB' : '#CBD5E1', position: 'relative', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', flexShrink: 0, padding: 0 }}
+                          title="Toggle Access Code Enforcer"
+                        >
+                          <span style={{ position: 'absolute', top: '2px', left: accessCodeEnforcer ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: '#FFFFFF', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                        </button>
+                      </div>
+
+                      {/* Toggle 3: Auto-Archiving */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', padding: '14px 16px', borderRadius: '12px', backgroundColor: autoArchiving ? '#F8FAFC' : '#FFFFFF', border: '1px solid #E2E8F0', transition: 'background-color 0.15s ease' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>
+                            Automated Handover Repository Archiving
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#64748B', marginTop: '3px', lineHeight: 1.4 }}>
+                            Generate frozen Git predecessor tags (<strong style={{ fontFamily: 'monospace', color: '#475569' }}>v1.0-handover-archive</strong>) whenever an admin flags continuity handover.
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAutoArchiving(!autoArchiving)}
+                          style={{ width: '44px', height: '24px', borderRadius: '9999px', backgroundColor: autoArchiving ? '#2563EB' : '#CBD5E1', position: 'relative', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', flexShrink: 0, padding: 0 }}
+                          title="Toggle Handover Auto-Archiving"
+                        >
+                          <span style={{ position: 'absolute', top: '2px', left: autoArchiving ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: '#FFFFFF', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                        </button>
+                      </div>
+
+                      {/* Toggle 4: HMAC Signature Verification */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', padding: '14px 16px', borderRadius: '12px', backgroundColor: hmacVerification ? '#F8FAFC' : '#FFFFFF', border: '1px solid #E2E8F0', transition: 'background-color 0.15s ease' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>
+                            GitHub Webhook SHA-256 HMAC Verification
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#64748B', marginTop: '3px', lineHeight: 1.4 }}>
+                            Verify cryptographic signature header (<strong style={{ fontFamily: 'monospace', color: '#475569' }}>X-Hub-Signature-256</strong>) on all inbound repository push payloads.
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setHmacVerification(!hmacVerification)}
+                          style={{ width: '44px', height: '24px', borderRadius: '9999px', backgroundColor: hmacVerification ? '#2563EB' : '#CBD5E1', position: 'relative', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', flexShrink: 0, padding: 0 }}
+                          title="Toggle Webhook HMAC Verification"
+                        >
+                          <span style={{ position: 'absolute', top: '2px', left: hmacVerification ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: '#FFFFFF', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                        </button>
+                      </div>
+
+                    </div>
                   </div>
-                  <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
+
+                  {/* 4. Infrastructure & Live Gateways Status */}
+                  <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748B', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Server size={16} className="text-blue-600" />
+                      <span>Connected Infrastructure & Ingestion Gateways</span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '10px', backgroundColor: '#F8FAFC', border: '1px solid #F1F5F9', fontSize: '12.5px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <Database size={16} className="text-emerald-600" />
+                          <span style={{ fontWeight: 600, color: '#1E293B' }}>MongoDB Atlas Cluster</span>
+                        </div>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#16A34A', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: '4px' }}>
+                          Connected · TLS 1.3
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '10px', backgroundColor: '#F8FAFC', border: '1px solid #F1F5F9', fontSize: '12.5px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <Radio size={16} className="text-purple-600" />
+                          <span style={{ fontWeight: 600, color: '#1E293B' }}>Public Webhook Gateway</span>
+                        </div>
+                        <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#64748B', backgroundColor: '#F1F5F9', padding: '2px 8px', borderRadius: '4px' }}>
+                          support-shy-overcook.ngrok-free.dev
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '10px', backgroundColor: '#F8FAFC', border: '1px solid #F1F5F9', fontSize: '12.5px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <Mail size={16} className="text-blue-600" />
+                          <span style={{ fontWeight: 600, color: '#1E293B' }}>Nodemailer SMTP Gateway</span>
+                        </div>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563EB', backgroundColor: '#EFF6FF', padding: '2px 8px', borderRadius: '4px' }}>
+                          Gmail Service Active
+                        </span>
+                      </div>
+
+                    </div>
+                  </div>
+
                 </div>
+
               </div>
             </div>
           )}

@@ -34,56 +34,66 @@ const recalculateHealthScore = async (projectId) => {
     }
 
     // 2. MILESTONE & TASK ADHERENCE COMPONENT (35%)
-    let adherenceScore = project.progress || 50;
     const projectTasks = await Task.find({ projectId: project._id }).lean();
 
+    let adherenceScore;
     if (projectTasks && projectTasks.length > 0) {
       const completedTasks = projectTasks.filter(t => t.status === 'done').length;
       const taskRatio = (completedTasks / projectTasks.length) * 100;
-      // Blend task completion with registered progress
-      adherenceScore = Math.round(taskRatio * 0.7 + (project.progress || 0) * 0.3);
+      adherenceScore = Math.round(taskRatio);
+      // Sync actual task progress to project model
+      project.progress = adherenceScore;
+    } else {
+      // No tasks in DB: use actual project progress (0 for new project, never fake fallback)
+      adherenceScore = typeof project.progress === 'number' ? project.progress : 0;
     }
 
     // Penalty if passed deadline without completion
-    if (project.deadline && new Date(project.deadline) < now && (project.progress || 0) < 100) {
-      adherenceScore = Math.max(10, adherenceScore - 30);
+    const isPastDeadline = project.deadline && new Date(project.deadline) < now;
+    const projectAgeDays = Math.max(0, (now.getTime() - new Date(project.createdAt || now).getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (isPastDeadline && (project.progress || 0) < 100 && projectAgeDays >= 7) {
+      adherenceScore = Math.max(10, adherenceScore - 25);
     }
 
     // 3. REPO ACTIVITY COMPONENT (25%)
-    let repoActivityScore = 50;
     const isRepoConnected = Boolean(project.githubIntegration?.isConnected || project.githubUrl);
+    let repoActivityScore = 75;
 
     if (isRepoConnected) {
       const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
       
-      // Count repository events in trailing 14 days
       const recentEventsCount = await RepositoryEvent.countDocuments({
         projectId: project._id,
         receivedAt: { $gte: fourteenDaysAgo }
       });
 
-      // Team size normalization (Leader + members)
       const teamSize = Math.max(1, 1 + (project.team?.members?.length || 0));
-      // Expected baseline: ~2 code events per team member over 14 days
       const expectedEvents = Math.max(2, teamSize * 2);
 
-      repoActivityScore = Math.min(100, Math.round((recentEventsCount / expectedEvents) * 100));
-      // Give baseline credit if repo is connected even if commits just started
-      if (recentEventsCount > 0 && repoActivityScore < 60) {
-        repoActivityScore = 65;
+      if (recentEventsCount > 0) {
+        repoActivityScore = Math.min(100, Math.max(65, Math.round((recentEventsCount / expectedEvents) * 100)));
+      } else {
+        // Connected but waiting for first commit push:
+        // Grant onboarding grace period of 7 days
+        repoActivityScore = projectAgeDays <= 7 ? 75 : 40;
       }
     }
 
-    // Compute composite score based on whether repo is connected
-    let finalScore = 80;
-    if (isRepoConnected) {
+    // Check if project is newly active in initialization
+    const isNewZeroState = projectAgeDays <= 3 && (!projectTasks || projectTasks.length === 0) && (project.githubIntegration?.totalCommits || 0) === 0;
+
+    let finalScore;
+    if (isNewZeroState) {
+      // Newly active project: healthy starting state
+      finalScore = 85;
+    } else if (isRepoConnected) {
       finalScore = Math.round(
         updateRecencyScore * 0.40 +
         adherenceScore * 0.35 +
         repoActivityScore * 0.25
       );
     } else {
-      // Fallback weights when repo is not yet connected
       finalScore = Math.round(
         updateRecencyScore * 0.55 +
         adherenceScore * 0.45
@@ -108,14 +118,13 @@ const recalculateHealthScore = async (projectId) => {
     project.healthScore = finalScore;
     project.health = derivedHealth;
 
-    // Harmonize status & health to prevent contradictory UI states:
-    // If health drops to Critical or At Risk, update status away from Active green dot
-    if (derivedHealth === 'Critical' || derivedHealth === 'At Risk') {
+    // Harmonize status & health:
+    // Only set project.status = 'At Risk' if it drops to Critical
+    if (derivedHealth === 'Critical') {
       if (project.status === 'Active') {
         project.status = 'At Risk';
       }
     } else if (derivedHealth === 'Good' || derivedHealth === 'Moderate') {
-      // If previously flagged At Risk and recovered, restore Active
       if (project.status === 'At Risk') {
         project.status = 'Active';
       }

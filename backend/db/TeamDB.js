@@ -110,6 +110,20 @@ const teamDBSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
+  projectStory: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  problemStatement: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  techStack: [{
+    type: String,
+    trim: true
+  }],
   currentStatusNote: {
     type: String,
     default: '',

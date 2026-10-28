@@ -59,7 +59,11 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
   const [department, setDepartment] = useState('Computer Science & Engineering');
   const [academicYear, setAcademicYear] = useState('2025-2026');
   const [facultyGuide, setFacultyGuide] = useState(() => getRandomFaculty());
-  const [deadline, setDeadline] = useState('2026-05-15');
+  const [deadline, setDeadline] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 6);
+    return d.toISOString().slice(0, 10);
+  });
   const [priority, setPriority] = useState('High');
   const [description, setDescription] = useState('');
   const [invitedLeadEmail, setInvitedLeadEmail] = useState('');

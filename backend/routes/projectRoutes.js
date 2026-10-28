@@ -22,7 +22,11 @@ const {
   toggleProjectHandoverStatus,
   getOpenHandoverProjects,
   postTeamStatusUpdate,
-  analyzeProjectHandoverEndpoint
+  analyzeProjectHandoverEndpoint,
+  getProjectTasks,
+  createProjectTask,
+  updateProjectTask,
+  deleteProjectTask
 } = require('../controllers/projectController');
 
 // Routes for projects
@@ -32,6 +36,10 @@ router.get('/handover/available', getOpenHandoverProjects);
 router.get('/', getProjects);
 router.post('/test-email', sendTestEmail);
 router.get('/:id/team', getProjectTeam);
+router.get('/:id/tasks', getProjectTasks);
+router.post('/:id/tasks', createProjectTask);
+router.put('/:id/tasks/:taskId', updateProjectTask);
+router.delete('/:id/tasks/:taskId', deleteProjectTask);
 router.get('/:id', getProjectById);
 router.post('/', createProject);
 router.put('/:id/team', updateProjectTeam);

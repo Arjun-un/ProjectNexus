@@ -12,6 +12,7 @@ import {
   Check,
   RefreshCw,
   AlertCircle,
+  Info,
   Send,
   Sparkles,
   ShieldCheck,
@@ -623,14 +624,14 @@ export default function ProjectDetailView({
             );
           })()}
 
-          {/* 2. Student-Authored Project Summary & Architecture Brief */}
+          {/* 1.5. Problem Statement & Scope */}
           <div className="pn-panel">
             <div className="pn-panel-header">
               <div className="pn-panel-title-group">
-                <Sparkles className="w-4 h-4 text-blue-600" />
-                <h3 className="pn-panel-title">Student Technical Architecture & Project Brief</h3>
+                <Info className="w-4 h-4 text-blue-600" />
+                <h3 className="pn-panel-title">Problem Statement & Scope</h3>
               </div>
-              {project.studentSummary ? (
+              {(project.problemStatement || project.description) ? (
                 <span style={{
                   fontSize: '11px',
                   fontWeight: 600,
@@ -640,7 +641,75 @@ export default function ProjectDetailView({
                   color: '#1D4ED8',
                   border: '1px solid #BFDBFE'
                 }}>
-                  Student Submitted
+                  Documented
+                </span>
+              ) : (
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  padding: '3px 9px',
+                  borderRadius: '6px',
+                  backgroundColor: '#F1F5F9',
+                  color: '#64748B',
+                  border: '1px solid #E2E8F0'
+                }}>
+                  Awaiting Documentation
+                </span>
+              )}
+            </div>
+
+            {(project.problemStatement || project.description) ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {project.problemStatement && (
+                  <div className="pn-summary-box" style={{ borderLeft: '4px solid #3B82F6' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#1D4ED8', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.04em' }}>
+                      Problem Statement
+                    </div>
+                    {project.problemStatement}
+                  </div>
+                )}
+                {project.description && project.description !== project.problemStatement && (
+                  <div style={{ fontSize: '12.5px', color: '#475569', lineHeight: 1.5, padding: '4px 2px' }}>
+                    <span style={{ fontWeight: 600, color: '#334155' }}>Scope Notes: </span>
+                    {project.description}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="pn-empty-summary">
+                <div className="pn-empty-summary-icon">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
+                    No Problem Statement Documented Yet
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#64748B', margin: '2px 0 0', lineHeight: 1.4 }}>
+                    The student team can document the specific problem statement, objectives, and scope constraints from their workspace.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 2. Student-Authored Project Summary & Architecture Brief */}
+          <div className="pn-panel">
+            <div className="pn-panel-header">
+              <div className="pn-panel-title-group">
+                <Sparkles className="w-4 h-4 text-purple-600" />
+                <h3 className="pn-panel-title">Student Project Story, Architecture & Executive Summary</h3>
+              </div>
+              {(project.projectStory || project.studentSummary) ? (
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  padding: '3px 9px',
+                  borderRadius: '6px',
+                  backgroundColor: '#F5F3FF',
+                  color: '#6D28D9',
+                  border: '1px solid #DDD6FE'
+                }}>
+                  Student Submitted Story
                 </span>
               ) : (
                 <span style={{
@@ -657,10 +726,10 @@ export default function ProjectDetailView({
               )}
             </div>
 
-            {project.studentSummary ? (
+            {(project.projectStory || project.studentSummary) ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div className="pn-summary-box">
-                  {project.studentSummary}
+                <div className="pn-summary-box" style={{ borderLeft: '4px solid #8B5CF6' }}>
+                  {project.projectStory || project.studentSummary}
                 </div>
                 {project.summaryLastUpdatedAt && (
                   <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'monospace', textAlign: 'right' }}>
@@ -675,10 +744,10 @@ export default function ProjectDetailView({
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
-                    No Technical Brief Submitted Yet
+                    No Project Story or Technical Brief Submitted Yet
                   </div>
                   <p style={{ fontSize: '12px', color: '#64748B', margin: '2px 0 0', lineHeight: 1.4 }}>
-                    The student team can submit their technical architecture summary, module breakdown, and weekly notes directly from the Student Team Workspace.
+                    The student team can submit their project story, technical architecture summary, and module breakdown directly from the Student Team Workspace.
                   </p>
                 </div>
               </div>
@@ -1340,27 +1409,30 @@ export default function ProjectDetailView({
                 <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
                   Technologies & Frameworks
                 </div>
-                <div className="pn-chips-wrap">
-                  {(project.techStack && project.techStack.length > 0
-                    ? project.techStack
-                    : ['React', 'Node.js', 'Python', 'PostgreSQL']
-                  ).map((tech, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleCopyChip(tech)}
-                      className="pn-tech-chip"
-                      title="Click to copy"
-                    >
-                      <span>{tech}</span>
-                      {copiedChip === tech ? (
-                        <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
-                      ) : (
-                        <Copy className="w-3 h-3 opacity-40 hover:opacity-100" />
-                      )}
-                    </button>
-                  ))}
-                </div>
+                {project.techStack && project.techStack.length > 0 ? (
+                  <div className="pn-chips-wrap">
+                    {project.techStack.map((tech, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleCopyChip(tech)}
+                        className="pn-tech-chip"
+                        title="Click to copy"
+                      >
+                        <span>{tech}</span>
+                        {copiedChip === tech ? (
+                          <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                        ) : (
+                          <Copy className="w-3 h-3 opacity-40 hover:opacity-100" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic', padding: '6px 0' }}>
+                    No technologies defined yet by student team.
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>

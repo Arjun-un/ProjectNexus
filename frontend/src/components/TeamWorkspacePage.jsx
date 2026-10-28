@@ -40,8 +40,10 @@ import {
   X,
   ShieldCheck,
   UserPlus,
-  Radio
+  Radio,
+  Printer
 } from 'lucide-react';
+import OfficialHandoverDocumentModal from './OfficialHandoverDocumentModal';
 
 /* ── Compute days remaining until a date ── */
 function daysUntil(dateStr) {
@@ -93,11 +95,22 @@ export default function TeamWorkspacePage({
   weeklyUpdates,
   setWeeklyUpdates,
   handoverRecord,
+  handoverJustExecuted = false,
+  onDismissHandoverJustExecuted,
   activityLogs,
   onTriggerHandover,
   onHome,
 }) {
-  const [activeNav, setActiveNav] = useState('overview');
+  const [activeNav, setActiveNav] = useState(handoverJustExecuted ? 'continuity' : 'overview');
+  const [showContinuationWelcomeModal, setShowContinuationWelcomeModal] = useState(Boolean(handoverJustExecuted));
+  const [showOfficialDocModal, setShowOfficialDocModal] = useState(false);
+
+  useEffect(() => {
+    if (handoverJustExecuted) {
+      setActiveNav('continuity');
+      setShowContinuationWelcomeModal(true);
+    }
+  }, [handoverJustExecuted]);
   const [urlCopied, setUrlCopied] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [repoConnected, setRepoConnected] = useState(true);
@@ -130,7 +143,24 @@ export default function TeamWorkspacePage({
 
   // Student Project Brief & Live Status states
   const [studentSummary, setStudentSummary] = useState(project?.studentSummary || '');
+  const [projectStory, setProjectStory] = useState(project?.projectStory || project?.studentSummary || '');
+  const [problemStatement, setProblemStatement] = useState(project?.problemStatement || '');
+  const [techStack, setTechStack] = useState(Array.isArray(project?.techStack) ? project.techStack : []);
   const [currentStatusNote, setCurrentStatusNote] = useState(project?.currentStatusNote || '');
+
+  // Inline card edit states
+  const [isEditingProblem, setIsEditingProblem] = useState(false);
+  const [tempProblem, setTempProblem] = useState(project?.problemStatement || '');
+  const [isSavingProblem, setIsSavingProblem] = useState(false);
+
+  const [isEditingTech, setIsEditingTech] = useState(false);
+  const [tempTechStack, setTempTechStack] = useState(Array.isArray(project?.techStack) ? [...project.techStack] : []);
+  const [newTechInput, setNewTechInput] = useState('');
+  const [isSavingTech, setIsSavingTech] = useState(false);
+
+  const [isEditingStory, setIsEditingStory] = useState(false);
+  const [tempStory, setTempStory] = useState(project?.projectStory || project?.studentSummary || '');
+  const [isSavingStory, setIsSavingStory] = useState(false);
 
   const [githubRepoUrl, setGithubRepoUrl] = useState(
     project?.githubUrl || project?.githubStats?.repoUrl || ''
@@ -148,6 +178,10 @@ export default function TeamWorkspacePage({
   const [editGithubUrl, setEditGithubUrl] = useState(githubRepoUrl);
   const [editBranch, setEditBranch] = useState(gitBranch);
   const [editStudentSummary, setEditStudentSummary] = useState(studentSummary);
+  const [editProjectStory, setEditProjectStory] = useState(projectStory || studentSummary);
+  const [editProblemStatement, setEditProblemStatement] = useState(problemStatement);
+  const [editTechStack, setEditTechStack] = useState(Array.isArray(project?.techStack) ? [...project.techStack] : []);
+  const [modalTechInput, setModalTechInput] = useState('');
   const [editCurrentStatusNote, setEditCurrentStatusNote] = useState(currentStatusNote);
 
   // Quick add member inputs in modal
@@ -231,6 +265,9 @@ export default function TeamWorkspacePage({
     setEditGithubUrl(githubRepoUrl);
     setEditBranch(gitBranch);
     setEditStudentSummary(studentSummary || project?.studentSummary || '');
+    setEditProjectStory(projectStory || studentSummary || project?.projectStory || project?.studentSummary || '');
+    setEditProblemStatement(problemStatement || project?.problemStatement || '');
+    setEditTechStack(techStack && techStack.length > 0 ? [...techStack] : (Array.isArray(project?.techStack) ? [...project.techStack] : []));
     setEditCurrentStatusNote(currentStatusNote || project?.currentStatusNote || '');
     setTeamSaveFeedback('');
     setShowTeamModal(true);
@@ -277,7 +314,10 @@ export default function TeamWorkspacePage({
     const updatedMembers = [...editMembers];
     const updatedUrl = editGithubUrl.trim();
     const updatedBranch = editBranch.trim() || 'main';
-    const updatedSummary = editStudentSummary.trim();
+    const updatedSummary = editProjectStory.trim() || editStudentSummary.trim();
+    const updatedStory = editProjectStory.trim() || editStudentSummary.trim();
+    const updatedProblem = editProblemStatement.trim();
+    const updatedTech = Array.isArray(editTechStack) ? editTechStack : [];
     const updatedStatusNote = editCurrentStatusNote.trim();
 
     setTeamLead(updatedLead);
@@ -285,6 +325,9 @@ export default function TeamWorkspacePage({
     setGithubRepoUrl(updatedUrl);
     setGitBranch(updatedBranch);
     setStudentSummary(updatedSummary);
+    setProjectStory(updatedStory);
+    setProblemStatement(updatedProblem);
+    setTechStack(updatedTech);
     setCurrentStatusNote(updatedStatusNote);
 
     // Sync to parent project instance
@@ -297,6 +340,9 @@ export default function TeamWorkspacePage({
       };
       project.githubUrl = updatedUrl;
       project.studentSummary = updatedSummary;
+      project.projectStory = updatedStory;
+      project.problemStatement = updatedProblem;
+      project.techStack = updatedTech;
       project.currentStatusNote = updatedStatusNote;
       project.summaryLastUpdatedAt = new Date();
     }
@@ -309,6 +355,9 @@ export default function TeamWorkspacePage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentSummary: updatedSummary,
+          projectStory: updatedStory,
+          problemStatement: updatedProblem,
+          techStack: updatedTech,
           currentStatusNote: updatedStatusNote,
           leader: updatedLead,
           members: updatedMembers,
@@ -317,7 +366,7 @@ export default function TeamWorkspacePage({
           webhookUrl: targetTrackingUrl
         })
       });
-      setTeamSaveFeedback('Team details, project brief, and contributions saved successfully!');
+      setTeamSaveFeedback('Team details, project story, scope, and tech stack saved successfully!');
       setTimeout(() => {
         setShowTeamModal(false);
         setTeamSaveFeedback('');
@@ -331,6 +380,96 @@ export default function TeamWorkspacePage({
       }, 1000);
     } finally {
       setIsSavingTeam(false);
+    }
+  };
+
+  // Quick inline save for Problem Statement & Scope
+  const handleSaveProblemStatement = async (textToSave) => {
+    setIsSavingProblem(true);
+    const cleanText = (textToSave !== undefined ? textToSave : tempProblem).trim();
+    setProblemStatement(cleanText);
+    setTempProblem(cleanText);
+    if (project) {
+      project.problemStatement = cleanText;
+      project.summaryLastUpdatedAt = new Date();
+    }
+    try {
+      const projId = project?.projectId || project?.id || project?._id;
+      if (projId) {
+        await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(projId)}/team`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            problemStatement: cleanText
+          })
+        });
+      }
+    } catch (err) {
+      console.warn('Backend sync notice (problem statement):', err.message);
+    } finally {
+      setIsSavingProblem(false);
+      setIsEditingProblem(false);
+    }
+  };
+
+  // Quick inline save for Technology Stack
+  const handleSaveTechStack = async (stackToSave) => {
+    setIsSavingTech(true);
+    const cleanStack = Array.isArray(stackToSave) ? stackToSave : tempTechStack;
+    setTechStack(cleanStack);
+    setTempTechStack(cleanStack);
+    if (project) {
+      project.techStack = cleanStack;
+      project.summaryLastUpdatedAt = new Date();
+    }
+    try {
+      const projId = project?.projectId || project?.id || project?._id;
+      if (projId) {
+        await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(projId)}/team`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            techStack: cleanStack
+          })
+        });
+      }
+    } catch (err) {
+      console.warn('Backend sync notice (tech stack):', err.message);
+    } finally {
+      setIsSavingTech(false);
+      setIsEditingTech(false);
+    }
+  };
+
+  // Quick inline save for Project Story & Executive Summary
+  const handleSaveProjectStory = async (storyToSave) => {
+    setIsSavingStory(true);
+    const cleanStory = (storyToSave !== undefined ? storyToSave : tempStory).trim();
+    setProjectStory(cleanStory);
+    setStudentSummary(cleanStory);
+    setTempStory(cleanStory);
+    if (project) {
+      project.projectStory = cleanStory;
+      project.studentSummary = cleanStory;
+      project.summaryLastUpdatedAt = new Date();
+    }
+    try {
+      const projId = project?.projectId || project?.id || project?._id;
+      if (projId) {
+        await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(projId)}/team`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            projectStory: cleanStory,
+            studentSummary: cleanStory
+          })
+        });
+      }
+    } catch (err) {
+      console.warn('Backend sync notice (project story):', err.message);
+    } finally {
+      setIsSavingStory(false);
+      setIsEditingStory(false);
     }
   };
 
@@ -444,9 +583,48 @@ export default function TeamWorkspacePage({
                 setTunnelBaseUrl(parsed.origin);
               } catch {}
             }
-          } else if (result.publicWebhookBase) {
-            setTunnelBaseUrl(result.publicWebhookBase);
+          } else if (json.publicWebhookBase) {
+            setTunnelBaseUrl(json.publicWebhookBase);
           }
+          if (t.problemStatement) {
+            setProblemStatement(t.problemStatement);
+            setTempProblem(t.problemStatement);
+          }
+          if (t.projectStory || t.studentSummary) {
+            const storyVal = t.projectStory || t.studentSummary;
+            setProjectStory(storyVal);
+            setStudentSummary(storyVal);
+            setTempStory(storyVal);
+          }
+          if (Array.isArray(t.techStack) && t.techStack.length > 0) {
+            setTechStack(t.techStack);
+            setTempTechStack(t.techStack);
+          }
+        }
+
+        // Fetch real persisted tasks for this project
+        try {
+          const tasksRes = await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(rawProjectId)}/tasks`);
+          const tasksJson = await tasksRes.json();
+          if (isMounted && tasksJson.success && Array.isArray(tasksJson.data) && tasksJson.data.length > 0) {
+            setTasks(tasksJson.data.map(tk => ({
+              id: tk._id || tk.taskId,
+              _id: tk._id,
+              taskId: tk.taskId,
+              projectId: rawProjectId,
+              title: tk.title,
+              description: tk.description || '',
+              status: tk.status || 'todo',
+              priority: tk.priority || 'medium',
+              assignee: tk.assigneeEmail || teamLead?.name || 'Student Contributor',
+              assigneeAvatar: initials(tk.assigneeEmail || teamLead?.name || 'SC'),
+              dueDate: tk.dueDate ? new Date(tk.dueDate).toISOString().split('T')[0] : '2027-05-15',
+              milestoneId: activeMilestone?.id || 'm1',
+              weight: 1
+            })));
+          }
+        } catch {
+          // Graceful fallback to local state
         }
       } catch (err) {
         console.warn('Could not load team from teamdb:', err.message);
@@ -571,16 +749,29 @@ export default function TeamWorkspacePage({
   };
 
   // Move task
-  const handleMoveTask = (taskId, newStatus) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+  const handleMoveTask = async (taskId, newStatus) => {
+    setTasks(prev => prev.map(t => (t.id === taskId || t._id === taskId || t.taskId === taskId) ? { ...t, status: newStatus } : t));
+    const projId = project?.projectId || project?.id || project?._id;
+    if (projId) {
+      try {
+        await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(projId)}/tasks/${encodeURIComponent(taskId)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus })
+        });
+      } catch (err) {
+        console.warn('Backend task move notice:', err.message);
+      }
+    }
   };
 
   // Create task
-  const handleCreateTask = (e) => {
+  const handleCreateTask = async (e) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
-    setTasks(prev => [{
-      id: 'task-' + Date.now(),
+    const tempId = 'task-' + Date.now();
+    const newTask = {
+      id: tempId,
       projectId: project.id,
       version: project.currentVersionNumber,
       title: newTaskTitle,
@@ -592,9 +783,34 @@ export default function TeamWorkspacePage({
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       milestoneId: activeMilestone?.id || 'm1',
       weight: 1
-    }, ...prev]);
+    };
+    setTasks(prev => [newTask, ...prev]);
+    const submittedTitle = newTaskTitle;
+    const submittedPriority = newTaskPriority;
     setNewTaskTitle('');
     setShowNewTaskModal(false);
+
+    const projId = project?.projectId || project?.id || project?._id;
+    if (projId) {
+      try {
+        const res = await fetch(`http://localhost:5000/api/projects/${encodeURIComponent(projId)}/tasks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: submittedTitle,
+            description: 'Task created via team workspace',
+            priority: submittedPriority,
+            status: 'todo'
+          })
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+          setTasks(prev => prev.map(t => t.id === tempId ? { ...t, ...data.data, id: data.data._id || data.data.taskId } : t));
+        }
+      } catch (err) {
+        console.warn('Backend task create notice:', err.message);
+      }
+    }
   };
 
   // Submit weekly update
@@ -1100,19 +1316,24 @@ export default function TeamWorkspacePage({
                     )}
                   </div>
 
-                  {/* 2. Student-Authored Project Summary & Architecture Brief */}
+                  {/* 2. Student-Authored Project Story & Architecture Summary */}
                   <div className="twp-card" style={{ border: '1.5px solid #e0e7ff', background: '#faf5ff' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                       <div className="twp-card-title" style={{ margin: 0, color: '#4338ca' }}>
                         <Sparkles style={{ width: 14, height: 14, color: '#7c3aed' }} className="twp-card-title-icon" />
-                        Student Project Architecture & Brief
+                        Project Story & Executive Architecture Summary
                       </div>
                       <button
-                        onClick={handleOpenTeamModal}
+                        onClick={() => {
+                          if (!isEditingStory) {
+                            setTempStory(projectStory || studentSummary);
+                          }
+                          setIsEditingStory(prev => !prev);
+                        }}
                         style={{
-                          background: '#ede9fe',
-                          border: '1px solid #c4b5fd',
-                          color: '#6d28d9',
+                          background: isEditingStory ? '#fee2e2' : '#ede9fe',
+                          border: `1px solid ${isEditingStory ? '#fca5a5' : '#c4b5fd'}`,
+                          color: isEditingStory ? '#b91c1c' : '#6d28d9',
                           borderRadius: 6,
                           padding: '4px 10px',
                           fontSize: 11,
@@ -1123,29 +1344,95 @@ export default function TeamWorkspacePage({
                           gap: 4
                         }}
                       >
-                        <Edit3 style={{ width: 11, height: 11 }} />
-                        Edit Brief
+                        {isEditingStory ? <X style={{ width: 11, height: 11 }} /> : <Edit3 style={{ width: 11, height: 11 }} />}
+                        {isEditingStory ? 'Cancel' : (projectStory || studentSummary ? 'Edit Story' : '+ Write Story')}
                       </button>
                     </div>
 
-                    {studentSummary ? (
+                    {isEditingStory ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <textarea
+                          rows={4}
+                          value={tempStory}
+                          onChange={e => setTempStory(e.target.value)}
+                          placeholder="Write the comprehensive story and narrative of your project — what problem it solves, how it works, technical architecture, and real-world impact..."
+                          style={{
+                            width: '100%',
+                            background: '#fff',
+                            border: '1.5px solid #a855f7',
+                            borderRadius: 8,
+                            padding: '10px 12px',
+                            fontSize: 12.5,
+                            color: '#0f172a',
+                            outline: 'none',
+                            boxSizing: 'border-box',
+                            fontFamily: 'inherit',
+                            lineHeight: 1.5,
+                            resize: 'vertical'
+                          }}
+                        />
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingStory(false)}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: 6,
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              background: '#f1f5f9',
+                              border: '1px solid #cbd5e1',
+                              color: '#475569',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveProjectStory(tempStory)}
+                            disabled={isSavingStory}
+                            style={{
+                              padding: '6px 14px',
+                              borderRadius: 6,
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              background: '#7c3aed',
+                              color: '#fff',
+                              border: 'none',
+                              cursor: isSavingStory ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 5
+                            }}
+                          >
+                            <Save style={{ width: 12, height: 12 }} />
+                            {isSavingStory ? 'Saving Story...' : 'Save Story & Summary'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (projectStory || studentSummary) ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <p className="twp-desc-text" style={{ color: '#1e1b4b', background: '#fff', padding: '12px 14px', borderRadius: 10, border: '1px solid #f3e8ff', margin: 0, lineHeight: 1.6 }}>
-                          {studentSummary}
+                          {projectStory || studentSummary}
                         </p>
-                        {project?.summaryLastUpdatedAt && (
-                          <div style={{ fontSize: 10.5, color: '#8b5cf6', fontFamily: 'monospace', textAlign: 'right' }}>
-                            Updated by team: {new Date(project.summaryLastUpdatedAt).toLocaleDateString()}
-                          </div>
-                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10.5, color: '#8b5cf6', fontFamily: 'monospace' }}>
+                          <span style={{ background: '#ede9fe', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>Student Documented Story</span>
+                          {project?.summaryLastUpdatedAt && (
+                            <span>Updated: {new Date(project.summaryLastUpdatedAt).toLocaleDateString()}</span>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div style={{ padding: '14px', background: '#fff', borderRadius: 8, border: '1px dashed #d8b4fe', textAlign: 'center' }}>
                         <p style={{ margin: 0, fontSize: 12, color: '#6b21a8' }}>
-                          Your team has not documented your custom technical architecture summary yet.
+                          Your team has not documented your custom project story and architecture summary yet.
                         </p>
                         <button
-                          onClick={handleOpenTeamModal}
+                          onClick={() => {
+                            setTempStory('');
+                            setIsEditingStory(true);
+                          }}
                           style={{
                             marginTop: 8,
                             background: '#7c3aed',
@@ -1155,48 +1442,422 @@ export default function TeamWorkspacePage({
                             padding: '6px 14px',
                             fontSize: 11,
                             fontWeight: 700,
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5
                           }}
                         >
-                          + Write Project Brief
+                          <Plus style={{ width: 12, height: 12 }} />
+                          Write Project Story & Summary
                         </button>
                       </div>
                     )}
                   </div>
 
-                  {/* Description */}
+                  {/* 3. Problem Statement & Scope */}
                   <div className="twp-card">
-                    <div className="twp-card-title">
-                      <Info style={{ width: 13, height: 13 }} className="twp-card-title-icon" />
-                      Problem Statement & Scope
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <div className="twp-card-title" style={{ margin: 0 }}>
+                        <Info style={{ width: 13, height: 13 }} className="twp-card-title-icon" />
+                        Problem Statement & Scope
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (!isEditingProblem) {
+                            setTempProblem(problemStatement || project?.problemStatement || '');
+                          }
+                          setIsEditingProblem(prev => !prev);
+                        }}
+                        style={{
+                          background: isEditingProblem ? '#fee2e2' : '#f1f5f9',
+                          border: `1px solid ${isEditingProblem ? '#fca5a5' : '#cbd5e1'}`,
+                          color: isEditingProblem ? '#b91c1c' : '#334155',
+                          borderRadius: 6,
+                          padding: '3px 9px',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4
+                        }}
+                      >
+                        {isEditingProblem ? <X style={{ width: 11, height: 11 }} /> : <Edit3 style={{ width: 11, height: 11 }} />}
+                        {isEditingProblem ? 'Cancel' : (problemStatement || project?.problemStatement ? 'Edit Scope' : '+ Add Scope')}
+                      </button>
                     </div>
-                    {project.problemStatement || project.description ? (
+
+                    {isEditingProblem ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <textarea
+                          rows={3}
+                          value={tempProblem}
+                          onChange={e => setTempProblem(e.target.value)}
+                          placeholder="Describe the institutional problem statement, project scope, target user base, and core system constraints..."
+                          style={{
+                            width: '100%',
+                            background: '#fff',
+                            border: '1.5px solid #6366f1',
+                            borderRadius: 8,
+                            padding: '10px 12px',
+                            fontSize: 12.5,
+                            color: '#0f172a',
+                            outline: 'none',
+                            boxSizing: 'border-box',
+                            fontFamily: 'inherit',
+                            lineHeight: 1.5,
+                            resize: 'vertical'
+                          }}
+                        />
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingProblem(false)}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: 6,
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              background: '#f1f5f9',
+                              border: '1px solid #cbd5e1',
+                              color: '#475569',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveProblemStatement(tempProblem)}
+                            disabled={isSavingProblem}
+                            style={{
+                              padding: '5px 14px',
+                              borderRadius: 6,
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              background: '#6366f1',
+                              color: '#fff',
+                              border: 'none',
+                              cursor: isSavingProblem ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 5
+                            }}
+                          >
+                            <Save style={{ width: 12, height: 12 }} />
+                            {isSavingProblem ? 'Saving...' : 'Save Scope'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (problemStatement || project?.problemStatement || project?.description) ? (
                       <>
-                        {project.problemStatement && <p className="twp-desc-text">{project.problemStatement}</p>}
-                        {project.description && <p className="twp-desc-text" style={{ marginTop: project.problemStatement ? 10 : 0, color: '#64748b' }}>{project.description}</p>}
+                        {(problemStatement || project?.problemStatement) && (
+                          <p className="twp-desc-text" style={{ color: '#0f172a', fontWeight: 500 }}>
+                            {problemStatement || project?.problemStatement}
+                          </p>
+                        )}
+                        {project?.description && project.description !== (problemStatement || project?.problemStatement) && (
+                          <p className="twp-desc-text" style={{ marginTop: (problemStatement || project?.problemStatement) ? 8 : 0, color: '#64748b' }}>
+                            {project.description}
+                          </p>
+                        )}
                       </>
                     ) : (
-                      <p className="twp-desc-text" style={{ color: '#94a3b8', fontStyle: 'italic' }}>
-                        No specific problem statement documented yet. Team can add requirements via workspace documents.
-                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <p className="twp-desc-text" style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>
+                          No specific problem statement documented yet. Team can add requirements via workspace documents.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTempProblem('');
+                            setIsEditingProblem(true);
+                          }}
+                          style={{
+                            alignSelf: 'flex-start',
+                            background: '#f8fafc',
+                            border: '1px dashed #cbd5e1',
+                            color: '#475569',
+                            borderRadius: 6,
+                            padding: '4px 10px',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}
+                        >
+                          <Plus style={{ width: 11, height: 11 }} />
+                          + Document Problem Statement & Scope
+                        </button>
+                      </div>
                     )}
                   </div>
 
-                  {/* Tech Stack */}
+                  {/* 4. Technology Stack */}
                   <div className="twp-card">
-                    <div className="twp-card-title">
-                      <Layers style={{ width: 13, height: 13 }} className="twp-card-title-icon" />
-                      Technology Stack
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <div className="twp-card-title" style={{ margin: 0 }}>
+                        <Layers style={{ width: 13, height: 13 }} className="twp-card-title-icon" />
+                        Technology Stack
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (!isEditingTech) {
+                            setTempTechStack(techStack && techStack.length > 0 ? [...techStack] : (Array.isArray(project?.techStack) ? [...project.techStack] : []));
+                          }
+                          setIsEditingTech(prev => !prev);
+                        }}
+                        style={{
+                          background: isEditingTech ? '#fee2e2' : '#f1f5f9',
+                          border: `1px solid ${isEditingTech ? '#fca5a5' : '#cbd5e1'}`,
+                          color: isEditingTech ? '#b91c1c' : '#334155',
+                          borderRadius: 6,
+                          padding: '3px 9px',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4
+                        }}
+                      >
+                        {isEditingTech ? <X style={{ width: 11, height: 11 }} /> : <Edit3 style={{ width: 11, height: 11 }} />}
+                        {isEditingTech ? 'Cancel' : (techStack.length > 0 ? 'Edit Stack' : '+ Add Technologies')}
+                      </button>
                     </div>
-                    <div className="twp-tech-chips">
-                      {project.techStack && project.techStack.length > 0 ? (
-                        project.techStack.map(tech => (
-                          <span key={tech} className="twp-tech-chip">{tech}</span>
-                        ))
-                      ) : (
-                        <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No technologies defined yet.</span>
-                      )}
-                    </div>
+
+                    {isEditingTech ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {/* Interactive chip manager */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, minHeight: 32 }}>
+                          {tempTechStack.length > 0 ? (
+                            tempTechStack.map((tech, idx) => (
+                              <span
+                                key={idx}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                  background: '#ede9fe',
+                                  color: '#5b21b6',
+                                  border: '1px solid #c4b5fd',
+                                  padding: '3px 8px',
+                                  borderRadius: 6,
+                                  fontSize: 11.5,
+                                  fontWeight: 600
+                                }}
+                              >
+                                {tech}
+                                <button
+                                  type="button"
+                                  onClick={() => setTempTechStack(prev => prev.filter((_, i) => i !== idx))}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#7c3aed',
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                  }}
+                                  title="Remove technology"
+                                >
+                                  <X style={{ width: 11, height: 11 }} />
+                                </button>
+                              </span>
+                            ))
+                          ) : (
+                            <span style={{ fontSize: 11.5, color: '#94a3b8', fontStyle: 'italic' }}>
+                              No technologies in list yet. Type below or pick suggestions.
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Input row */}
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <input
+                            type="text"
+                            placeholder="Type tech name (e.g. Docker, Python, FastAPI)..."
+                            value={newTechInput}
+                            onChange={e => setNewTechInput(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (newTechInput.trim() && !tempTechStack.includes(newTechInput.trim())) {
+                                  setTempTechStack(prev => [...prev, newTechInput.trim()]);
+                                  setNewTechInput('');
+                                }
+                              }
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: '6px 10px',
+                              borderRadius: 6,
+                              border: '1px solid #cbd5e1',
+                              fontSize: 12,
+                              outline: 'none'
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (newTechInput.trim() && !tempTechStack.includes(newTechInput.trim())) {
+                                setTempTechStack(prev => [...prev, newTechInput.trim()]);
+                                setNewTechInput('');
+                              }
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              background: '#6366f1',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: 6,
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            + Add
+                          </button>
+                        </div>
+
+                        {/* Suggestions */}
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>
+                            Quick Suggestions
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                            {['React', 'Node.js', 'Python', 'FastAPI', 'MongoDB', 'PostgreSQL', 'Docker', 'PyTorch', 'TypeScript', 'TailwindCSS'].map(tech => (
+                              <button
+                                key={tech}
+                                type="button"
+                                onClick={() => {
+                                  if (!tempTechStack.includes(tech)) {
+                                    setTempTechStack(prev => [...prev, tech]);
+                                  }
+                                }}
+                                style={{
+                                  background: tempTechStack.includes(tech) ? '#f1f5f9' : '#fff',
+                                  border: '1px solid #e2e8f0',
+                                  borderRadius: 4,
+                                  padding: '2px 7px',
+                                  fontSize: 10.5,
+                                  color: tempTechStack.includes(tech) ? '#94a3b8' : '#334155',
+                                  cursor: tempTechStack.includes(tech) ? 'default' : 'pointer'
+                                }}
+                              >
+                                + {tech}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Save row */}
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 6, borderTop: '1px solid #f1f5f9' }}>
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingTech(false)}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: 6,
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              background: '#f1f5f9',
+                              border: '1px solid #cbd5e1',
+                              color: '#475569',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveTechStack(tempTechStack)}
+                            disabled={isSavingTech}
+                            style={{
+                              padding: '5px 14px',
+                              borderRadius: 6,
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              background: '#10b981',
+                              color: '#fff',
+                              border: 'none',
+                              cursor: isSavingTech ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 5
+                            }}
+                          >
+                            <Save style={{ width: 12, height: 12 }} />
+                            {isSavingTech ? 'Saving...' : 'Save Tech Stack'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="twp-tech-chips">
+                        {techStack && techStack.length > 0 ? (
+                          <>
+                            {techStack.map(tech => (
+                              <span key={tech} className="twp-tech-chip">{tech}</span>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTempTechStack([...techStack]);
+                                setIsEditingTech(true);
+                              }}
+                              style={{
+                                background: '#f8fafc',
+                                border: '1px dashed #cbd5e1',
+                                color: '#6366f1',
+                                borderRadius: 6,
+                                padding: '3px 8px',
+                                fontSize: 11,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 3
+                              }}
+                            >
+                              <Plus style={{ width: 10, height: 10 }} />
+                              Add
+                            </button>
+                          </>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No technologies defined yet.</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTempTechStack([]);
+                                setIsEditingTech(true);
+                              }}
+                              style={{
+                                alignSelf: 'flex-start',
+                                background: '#f8fafc',
+                                border: '1px dashed #cbd5e1',
+                                color: '#475569',
+                                borderRadius: 6,
+                                padding: '4px 10px',
+                                fontSize: 11,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4
+                              }}
+                            >
+                              <Plus style={{ width: 11, height: 11 }} />
+                              + Add Technologies
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Current milestone stepper */}
@@ -2218,12 +2879,23 @@ export default function TeamWorkspacePage({
                     Institutional lineage tracking deliverables, technical debt, and team transitions across academic batches.
                   </div>
                 </div>
-                {onTriggerHandover && (
-                  <button className="twp-btn-ghost" onClick={onTriggerHandover}>
-                    <RefreshCw style={{ width: 13, height: 13 }} />
-                    <span>Trigger Next Version Handover</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    className="twp-btn-ghost"
+                    style={{ backgroundColor: '#FFFFFF', color: '#2563EB', borderColor: '#BFDBFE', fontWeight: 600 }}
+                    onClick={() => setShowOfficialDocModal(true)}
+                    type="button"
+                  >
+                    <Printer style={{ width: 14, height: 14 }} />
+                    <span>Download Official Document (PDF)</span>
                   </button>
-                )}
+                  {onTriggerHandover && (
+                    <button className="twp-btn-ghost" onClick={onTriggerHandover} type="button">
+                      <RefreshCw style={{ width: 13, height: 13 }} />
+                      <span>Trigger Next Version Handover</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {!hasHandoverHistory ? (
@@ -3218,24 +3890,28 @@ export default function TeamWorkspacePage({
                 </div>
               )}
 
-              {/* 0. Project Summary & Live Development Status Section */}
+              {/* 0. Project Summary, Story, Scope & Tech Stack Section */}
               <div style={{ background: '#faf5ff', border: '1.5px solid #d8b4fe', borderRadius: 12, padding: 18 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                   <Sparkles style={{ width: 16, height: 16, color: '#7c3aed' }} />
                   <span style={{ fontSize: 13, fontWeight: 800, color: '#581c87', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Project Brief & Live Development Status
+                    Project Story, Scope & Technical Specifications
                   </span>
                 </div>
-                
+
+                {/* Project Story / Executive Summary */}
                 <div style={{ marginBottom: 14 }}>
                   <label style={{ fontSize: 11, fontWeight: 700, color: '#581c87', display: 'block', marginBottom: 5 }}>
-                    Detailed Project Summary & Abstract (Student-Authored)
+                    Project Story & Executive Architecture Summary (Student-Authored)
                   </label>
                   <textarea
                     rows={3}
-                    placeholder="Provide a comprehensive explanation of what your project accomplishes, target users, problem solved, and key architectural modules..."
-                    value={editStudentSummary}
-                    onChange={e => setEditStudentSummary(e.target.value)}
+                    placeholder="Provide the inception story, what problem this solves, architectural overview, and core modules..."
+                    value={editProjectStory}
+                    onChange={e => {
+                      setEditProjectStory(e.target.value);
+                      setEditStudentSummary(e.target.value);
+                    }}
                     style={{
                       width: '100%',
                       background: '#fff',
@@ -3252,7 +3928,117 @@ export default function TeamWorkspacePage({
                     }}
                   />
                   <div style={{ fontSize: 10.5, color: '#7e22ce', marginTop: 4 }}>
-                    Displayed directly on your team workspace and to department administrators in the Project Master Directory.
+                    Displayed in both the student workspace and the administration project dossier.
+                  </div>
+                </div>
+
+                {/* Problem Statement & Scope */}
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: '#581c87', display: 'block', marginBottom: 5 }}>
+                    Problem Statement & Institutional Scope
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Document the exact engineering problem, objectives, and scope constraints..."
+                    value={editProblemStatement}
+                    onChange={e => setEditProblemStatement(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: '#fff',
+                      border: '1px solid #c084fc',
+                      borderRadius: 8,
+                      padding: '10px 12px',
+                      fontSize: 12.5,
+                      color: '#0f172a',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      fontFamily: 'inherit',
+                      lineHeight: 1.5,
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+
+                {/* Technology Stack in modal */}
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: '#581c87', display: 'block', marginBottom: 5 }}>
+                    Technology Stack & Frameworks
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                    {editTechStack.map((tech, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          background: '#ede9fe',
+                          color: '#5b21b6',
+                          border: '1px solid #c4b5fd',
+                          padding: '3px 8px',
+                          borderRadius: 6,
+                          fontSize: 11.5,
+                          fontWeight: 600
+                        }}
+                      >
+                        {tech}
+                        <button
+                          type="button"
+                          onClick={() => setEditTechStack(prev => prev.filter((_, i) => i !== idx))}
+                          style={{ background: 'none', border: 'none', color: '#7c3aed', cursor: 'pointer', padding: 0 }}
+                        >
+                          <X style={{ width: 11, height: 11 }} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      type="text"
+                      placeholder="Add technology (e.g. Docker, PyTorch)..."
+                      value={modalTechInput}
+                      onChange={e => setModalTechInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (modalTechInput.trim() && !editTechStack.includes(modalTechInput.trim())) {
+                            setEditTechStack(prev => [...prev, modalTechInput.trim()]);
+                            setModalTechInput('');
+                          }
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        background: '#fff',
+                        border: '1px solid #c084fc',
+                        borderRadius: 8,
+                        padding: '8px 12px',
+                        fontSize: 12,
+                        color: '#0f172a',
+                        outline: 'none'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (modalTechInput.trim() && !editTechStack.includes(modalTechInput.trim())) {
+                          setEditTechStack(prev => [...prev, modalTechInput.trim()]);
+                          setModalTechInput('');
+                        }
+                      }}
+                      style={{
+                        padding: '8px 14px',
+                        background: '#7c3aed',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 8,
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      + Add
+                    </button>
                   </div>
                 </div>
 
@@ -3767,6 +4553,232 @@ export default function TeamWorkspacePage({
           </div>
         </div>
       )}
+
+      {/* ── v2.0 Continuation Welcome Onboarding Modal ── */}
+      {showContinuationWelcomeModal && (
+        <div
+          className="pn-modal-backdrop"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(5px)',
+            zIndex: 9998,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={() => {
+            setShowContinuationWelcomeModal(false);
+            onDismissHandoverJustExecuted && onDismissHandoverJustExecuted();
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '680px',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '20px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+              overflow: 'hidden',
+              border: '1px solid #E2E8F0'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header Banner with Gradient */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%)',
+                padding: '28px 32px',
+                color: '#FFFFFF',
+                position: 'relative'
+              }}
+            >
+              <button
+                onClick={() => {
+                  setShowContinuationWelcomeModal(false);
+                  onDismissHandoverJustExecuted && onDismissHandoverJustExecuted();
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '18px',
+                  right: '18px',
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  width: '32px',
+                  height: '32px',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+                type="button"
+              >
+                <X size={16} />
+              </button>
+
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: '9999px', backgroundColor: 'rgba(255, 255, 255, 0.2)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
+                <Sparkles size={13} className="text-yellow-300" />
+                <span>Continuity Protocol Active · v{project?.currentVersionNumber || 2}.0 Provisioned</span>
+              </div>
+
+              <h2 style={{ fontSize: '22px', fontWeight: 900, margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
+                Welcome to the Continuation Workspace
+              </h2>
+              <p style={{ fontSize: '13px', color: '#C7D2FE', margin: 0, lineHeight: 1.5 }}>
+                You have assumed academic ownership of <strong style={{ color: '#FFFFFF' }}>{project?.title}</strong> ({project?.projectId}). Your cohort starts from verified historical baseline deliverables.
+              </p>
+            </div>
+
+            {/* Modal Body: 3 Pillars */}
+            <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              
+              {/* Inherited Baseline Pill */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: '12px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#EFF6FF', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <GitFork size={18} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748B' }}>Inherited Predecessor Baseline</span>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>
+                      {project?.previousTeam?.name || handoverRecord?.fromTeamName || 'Previous Student Team'} (v{(project?.currentVersionNumber || 2) - 1}.0)
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: '20px', fontWeight: 900, fontFamily: 'monospace', color: '#16A34A' }}>
+                    {project?.previousTeam?.discontinuedAt || handoverRecord?.progressAtHandover || 75}%
+                  </span>
+                  <div style={{ fontSize: '10.5px', color: '#64748B' }}>Preserved Deliverables</div>
+                </div>
+              </div>
+
+              {/* 3 Pillars List */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ padding: '14px', borderRadius: '12px', border: '1px solid #DCFCE7', backgroundColor: '#F0FDF4' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#166534', fontWeight: 700, fontSize: '12px', marginBottom: '4px' }}>
+                    <CheckCircle2 size={15} />
+                    <span>Locked v1.0 Deliverables</span>
+                  </div>
+                  <p style={{ fontSize: '11.5px', color: '#14532D', margin: 0, lineHeight: 1.4 }}>
+                    Base requirements, database models, and architecture specs are frozen and verified.
+                  </p>
+                </div>
+
+                <div style={{ padding: '14px', borderRadius: '12px', border: '1px solid #FED7AA', backgroundColor: '#FFFBEB' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#9A3412', fontWeight: 700, fontSize: '12px', marginBottom: '4px' }}>
+                    <AlertTriangle size={15} />
+                    <span>Inherited Technical Debt</span>
+                  </div>
+                  <p style={{ fontSize: '11.5px', color: '#7C2D12', margin: 0, lineHeight: 1.4 }}>
+                    Pending modules and debt items have been populated directly into your Kanban backlog!
+                  </p>
+                </div>
+              </div>
+
+              {/* Access Code & Git Repo Notice */}
+              <div style={{ padding: '12px 16px', borderRadius: '10px', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', fontSize: '12px', color: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <span>Your Continuation Team Access Code: </span>
+                  <code style={{ fontWeight: 800, fontFamily: 'monospace', color: '#0F172A', backgroundColor: '#FFFFFF', padding: '2px 8px', borderRadius: '4px', border: '1px solid #CBD5E1' }}>
+                    {project?.teamAccessCode || handoverRecord?.newAccessCode || 'NEXUS-ODJP'}
+                  </code>
+                </div>
+                <div style={{ fontSize: '11px', color: '#64748B' }}>
+                  Branch: <strong style={{ color: '#0F172A' }}>v1.0-handover-archive</strong>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div style={{ padding: '16px 32px', backgroundColor: '#F8FAFC', borderTop: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+              <button
+                onClick={() => setShowOfficialDocModal(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '9px 14px',
+                  borderRadius: '9px',
+                  border: '1px solid #CBD5E1',
+                  backgroundColor: '#FFFFFF',
+                  color: '#334155',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                type="button"
+              >
+                <Printer size={14} className="text-slate-600" />
+                <span>View Official Document</span>
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  onClick={() => {
+                    setActiveNav('continuity');
+                    setShowContinuationWelcomeModal(false);
+                    onDismissHandoverJustExecuted && onDismissHandoverJustExecuted();
+                  }}
+                  style={{
+                    padding: '9px 16px',
+                    borderRadius: '9px',
+                    border: '1px solid #E2E8F0',
+                    backgroundColor: '#FFFFFF',
+                    color: '#475569',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                  type="button"
+                >
+                  Continuity Dossier
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveNav('tasks');
+                    setShowContinuationWelcomeModal(false);
+                    onDismissHandoverJustExecuted && onDismissHandoverJustExecuted();
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '9px 18px',
+                    borderRadius: '9px',
+                    backgroundColor: '#2563EB',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                  type="button"
+                >
+                  <span>Go to Kanban Board</span>
+                  <ArrowRight size={14} />
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Official Printable Handover Document Modal */}
+      <OfficialHandoverDocumentModal
+        isOpen={showOfficialDocModal}
+        onClose={() => setShowOfficialDocModal(false)}
+        project={project}
+        handoverRecord={handoverRecord}
+      />
 
     </div>
   );

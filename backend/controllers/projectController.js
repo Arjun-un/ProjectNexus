@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const Project = require('../db/Project');
+const Task = require('../db/Task');
 const RepositoryEvent = require('../db/RepositoryEvent');
 const TeamDB = require('../db/TeamDB');
 const { sendProjectInvitationEmail } = require('../services/emailService');
@@ -825,9 +826,17 @@ exports.getProjectTeam = async (req, res) => {
       await teamRecord.save();
     }
 
+    const populatedData = {
+      ...teamRecord.toObject(),
+      problemStatement: teamRecord.problemStatement || project.problemStatement || '',
+      projectStory: teamRecord.projectStory || project.projectStory || teamRecord.studentSummary || project.studentSummary || '',
+      studentSummary: teamRecord.studentSummary || project.studentSummary || teamRecord.projectStory || project.projectStory || '',
+      techStack: (teamRecord.techStack && teamRecord.techStack.length > 0) ? teamRecord.techStack : (project.techStack || [])
+    };
+
     res.status(200).json({
       success: true,
-      data: teamRecord,
+      data: populatedData,
       publicWebhookBase: getPublicWebhookBase()
     });
   } catch (error) {
@@ -903,11 +912,38 @@ exports.updateProjectTeam = async (req, res) => {
       }
     }
 
-    // Update studentSummary & currentStatusNote if provided
-    const { studentSummary, currentStatusNote, statusMessage, updatedBy } = req.body;
-    if (studentSummary !== undefined) {
-      project.studentSummary = studentSummary.trim();
+    // Update studentSummary, projectStory, problemStatement & techStack if provided
+    const {
+      studentSummary,
+      projectStory,
+      story,
+      problemStatement,
+      techStack,
+      currentStatusNote,
+      statusMessage,
+      updatedBy
+    } = req.body;
+
+    const incomingStory = (projectStory !== undefined ? projectStory : (story !== undefined ? story : studentSummary));
+    if (incomingStory !== undefined) {
+      const cleanStory = incomingStory.trim();
+      project.projectStory = cleanStory;
+      project.studentSummary = cleanStory;
       project.summaryLastUpdatedAt = new Date();
+    }
+
+    if (problemStatement !== undefined) {
+      project.problemStatement = problemStatement.trim();
+    }
+
+    if (techStack !== undefined) {
+      let formattedTech = [];
+      if (Array.isArray(techStack)) {
+        formattedTech = techStack.map(t => String(t).trim()).filter(Boolean);
+      } else if (typeof techStack === 'string') {
+        formattedTech = techStack.split(',').map(t => t.trim()).filter(Boolean);
+      }
+      project.techStack = formattedTech;
     }
     const newStatusNote = currentStatusNote !== undefined ? currentStatusNote : statusMessage;
     if (newStatusNote !== undefined) {
@@ -952,7 +988,10 @@ exports.updateProjectTeam = async (req, res) => {
         teamName: project.team?.name || teamName || 'Alpha Visionary Labs',
         leader: project.team.leader,
         members: project.team.members,
-        studentSummary: project.studentSummary || '',
+        studentSummary: project.studentSummary || project.projectStory || '',
+        projectStory: project.projectStory || project.studentSummary || '',
+        problemStatement: project.problemStatement || '',
+        techStack: project.techStack || [],
         currentStatusNote: project.currentStatusNote || '',
         githubRepoUrl: activeRepoUrl,
         gitBranch: activeBranch,
@@ -1015,6 +1054,20 @@ exports.updateProjectStatus = async (req, res) => {
       project.progress = Math.min(100, Math.max(0, Number(progress)));
     } else if (status === 'Completed') {
       project.progress = 100;
+    } else if (previousStatus === 'Completed') {
+      // Reverting from Completed: recalculate from real tasks, never arbitrary fallback
+      const projectTasks = await Task.find({
+        $or: [
+          { projectId: project._id },
+          { projectId: project.projectId }
+        ]
+      }).lean();
+      if (projectTasks && projectTasks.length > 0) {
+        const completed = projectTasks.filter(t => t.status === 'done').length;
+        project.progress = Math.round((completed / projectTasks.length) * 100);
+      } else {
+        project.progress = 0;
+      }
     }
 
     const isMarkedCompleted = status === 'Completed' || (project.status === 'Completed' && previousStatus !== 'Completed');
@@ -1029,6 +1082,7 @@ exports.updateProjectStatus = async (req, res) => {
     });
 
     await project.save();
+    await recalculateHealthScore(project._id);
 
     // Also update TeamDB if exists
     await TeamDB.findOneAndUpdate(
@@ -1064,6 +1118,10 @@ exports.updateStudentContributions = async (req, res) => {
     const { id } = req.params;
     const {
       studentSummary,
+      projectStory,
+      story,
+      problemStatement,
+      techStack,
       currentStatusNote,
       leaderContribution,
       members,
@@ -1095,9 +1153,24 @@ exports.updateStudentContributions = async (req, res) => {
       project.team = { name: '', leader: {}, members: [] };
     }
 
-    // 1. Update Student Summary & Current Status
-    if (studentSummary !== undefined) {
-      project.studentSummary = studentSummary.trim();
+    // 1. Update Student Summary, Story, Problem Statement & Tech Stack
+    const incomingStory = (projectStory !== undefined ? projectStory : (story !== undefined ? story : studentSummary));
+    if (incomingStory !== undefined) {
+      const cleanStory = incomingStory.trim();
+      project.projectStory = cleanStory;
+      project.studentSummary = cleanStory;
+    }
+    if (problemStatement !== undefined) {
+      project.problemStatement = problemStatement.trim();
+    }
+    if (techStack !== undefined) {
+      let formattedTech = [];
+      if (Array.isArray(techStack)) {
+        formattedTech = techStack.map(t => String(t).trim()).filter(Boolean);
+      } else if (typeof techStack === 'string') {
+        formattedTech = techStack.split(',').map(t => t.trim()).filter(Boolean);
+      }
+      project.techStack = formattedTech;
     }
     if (currentStatusNote !== undefined) {
       project.currentStatusNote = currentStatusNote.trim();
@@ -1160,7 +1233,10 @@ exports.updateStudentContributions = async (req, res) => {
         teamName: project.team?.name || 'Alpha Visionary Labs',
         leader: project.team.leader,
         members: project.team.members,
-        studentSummary: project.studentSummary || '',
+        studentSummary: project.studentSummary || project.projectStory || '',
+        projectStory: project.projectStory || project.studentSummary || '',
+        problemStatement: project.problemStatement || '',
+        techStack: project.techStack || [],
         currentStatusNote: project.currentStatusNote || '',
         lastUpdated: new Date()
       },
@@ -1540,11 +1616,22 @@ exports.executeProjectHandover = async (req, res) => {
     // 2. Update Project fields
     project.currentVersionNumber = nextVersion;
     project.isContinuation = true;
+    project.isOpenToHandover = false; // Closed as new team has assumed ownership
+    project.handoverOpenedAt = null;
     project.status = 'Active';
     project.teamAccessCode = newCode;
     project.isAccessCodeClaimed = false;
     project.accessCodeStatus = 'active';
     if (newLeadEmail) project.invitedLeadEmail = newLeadEmail.trim().toLowerCase();
+
+    // Preserve previous team record
+    project.previousTeam = {
+      name: previousTeamName,
+      version: previousVersion,
+      discontinuedAt: progressAtHandover,
+      reason: reason || 'Academic term conclusion and internship migration',
+      discontinuedDate: new Date()
+    };
 
     // Re-initialize team roster for incoming continuation team
     project.team = {
@@ -1560,6 +1647,50 @@ exports.executeProjectHandover = async (req, res) => {
       members: []
     };
 
+    const finalCompletedModules = Array.isArray(completedModules) && completedModules.length > 0 ? completedModules : [
+      'Sprint 1 & 2 baseline specifications and architecture verified',
+      'User authentication, database schema, and REST API foundation',
+      `Milestone deliverables passed faculty review at ${progressAtHandover}% progress`
+    ];
+
+    const finalPendingModules = Array.isArray(pendingModules) && pendingModules.length > 0 ? pendingModules : [
+      'Edge deployment and end-to-end production telemetry synchronization',
+      'Automated test coverage, edge load benchmarking and resilience checks',
+      'Final academic institutional presentation & documentation for department review'
+    ];
+
+    const finalKnownIssues = Array.isArray(knownIssues) && knownIssues.length > 0 ? knownIssues : [
+      'Throughput optimization required for high concurrency loads',
+      'Device reconnect error-handling under degraded network bandwidth'
+    ];
+
+    const handoverRecord = {
+      packetId: `HO-${project.projectId}-v${nextVersion}.0`,
+      projectId: project.projectId,
+      projectTitle: project.title,
+      fromVersion: previousVersion,
+      toVersion: nextVersion,
+      fromTeamName: previousTeamName,
+      toTeamName: newTeamName || `Continuation Team (v${nextVersion}.0)`,
+      discontinuationReason: reason || 'Academic term conclusion and internship migration',
+      progressAtHandover,
+      completedModules: finalCompletedModules,
+      pendingModules: finalPendingModules,
+      knownIssues: finalKnownIssues,
+      facultyNotes: facultyNotes || `Supervised by ${project.facultyGuide || 'Faculty Guide'}. Inherit established baseline deliverables and consult departmental committee before altering core schemas.`,
+      hardwareNotes: hardwareNotes || project.labAssigned || 'Department Cloud Computing Lab',
+      githubUrl: project.githubUrl || `https://github.com/projectnexus/${project.projectId.toLowerCase()}`,
+      archiveBranch: `v${previousVersion}.0-handover-archive`,
+      pinnedCommitSha: req.body.pinnedCommitSha || '5fb748c',
+      newAccessCode: newCode,
+      transferredAt: new Date()
+    };
+
+    if (!Array.isArray(project.handoverHistory)) {
+      project.handoverHistory = [];
+    }
+    project.handoverHistory.unshift(handoverRecord);
+
     // Push audit timeline event
     project.timeline.unshift({
       title: `Versioned Handover Executed (v${previousVersion}.0 → v${nextVersion}.0)`,
@@ -1570,7 +1701,27 @@ exports.executeProjectHandover = async (req, res) => {
 
     await project.save();
 
-    // 3. Sync with TeamDB collection
+    // 3. Seed inherited backlog tasks into Kanban board for continuation team
+    try {
+      for (const debtItem of finalPendingModules) {
+        if (debtItem && typeof debtItem === 'string' && debtItem.trim()) {
+          await Task.create({
+            projectId: project._id,
+            title: `[Inherited Debt] ${debtItem.trim()}`,
+            description: `Inherited technical debt item transferred from ${previousTeamName} (v${previousVersion}.0). Inherited at ${progressAtHandover}% baseline.`,
+            status: 'todo',
+            priority: 'high',
+            category: project.category || 'Software',
+            assignedTo: 'Continuation Team',
+            dueDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000)
+          });
+        }
+      }
+    } catch (taskErr) {
+      console.warn('Could not seed inherited debt tasks:', taskErr.message);
+    }
+
+    // 4. Sync with TeamDB collection
     await TeamDB.findOneAndUpdate(
       { projectId: project.projectId },
       {
@@ -1588,37 +1739,6 @@ exports.executeProjectHandover = async (req, res) => {
       },
       { upsert: true, new: true }
     );
-
-    const handoverRecord = {
-      packetId: `HO-${project.projectId}-${nextVersion}.0`,
-      projectId: project.projectId,
-      projectTitle: project.title,
-      fromVersion: previousVersion,
-      toVersion: nextVersion,
-      fromTeamName: previousTeamName,
-      toTeamName: newTeamName || `Continuation Team (v${nextVersion}.0)`,
-      discontinuationReason: reason || 'Academic term conclusion and internship migration',
-      progressAtHandover,
-      completedModules: Array.isArray(completedModules) ? completedModules : [
-        'FaceNet embedding model (94.2% accuracy)',
-        'Student profile enrollment UI',
-        'PostgreSQL vector database schema'
-      ],
-      pendingModules: Array.isArray(pendingModules) ? pendingModules : [
-        'Anti-Spoofing & Liveness Filter',
-        'Edge inference optimization (Jetson GPU)',
-        'Faculty Attendance CSV Export'
-      ],
-      knownIssues: Array.isArray(knownIssues) ? knownIssues : [
-        'RTSP memory leak on WiFi disconnect',
-        'Inference latency high on CPU'
-      ],
-      facultyNotes: facultyNotes || 'Hardware kit available in CS Lab 3, Locker #4. Do not retrain base embedding network; focus directly on liveness filtering.',
-      hardwareNotes: hardwareNotes || 'Workstation 4, CS Embedded Lab',
-      githubUrl: project.githubUrl || 'https://github.com/projectnexus/smart-attendance-system',
-      newAccessCode: newCode,
-      transferredAt: new Date()
-    };
 
     res.status(200).json({
       success: true,
@@ -1862,6 +1982,195 @@ exports.postTeamStatusUpdate = async (req, res) => {
       message: 'Failed to record team status update',
       error: error.message
     });
+  }
+};
+
+/**
+ * @route   GET /api/projects/:id/tasks
+ * @desc    Get all tasks for a project from MongoDB
+ * @access  Public
+ */
+exports.getProjectTasks = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const project = await findProjectByIdOrCustomId(id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    const tasks = await Task.find({ projectId: project._id }).sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: tasks.length,
+      data: tasks
+    });
+  } catch (error) {
+    console.error('Error fetching project tasks:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch tasks', error: error.message });
+  }
+};
+
+/**
+ * @route   POST /api/projects/:id/tasks
+ * @desc    Create a new task and dynamically recalculate project progress & health
+ * @access  Public
+ */
+exports.createProjectTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, priority, assigneeEmail, status, dueDate } = req.body;
+    const project = await findProjectByIdOrCustomId(id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, message: 'Task title is required' });
+    }
+
+    const taskCount = await Task.countDocuments({ projectId: project._id });
+    const taskIdStr = `TASK-${taskCount + 1}`;
+
+    const newTask = await Task.create({
+      projectId: project._id,
+      taskId: taskIdStr,
+      title: title.trim(),
+      description: (description || '').trim(),
+      priority: priority || 'medium',
+      assigneeEmail: (assigneeEmail || '').trim().toLowerCase(),
+      status: status || 'todo',
+      dueDate: dueDate ? new Date(dueDate) : null
+    });
+
+    // Recalculate project progress from actual tasks in DB
+    const allTasks = await Task.find({ projectId: project._id }).lean();
+    if (allTasks.length > 0) {
+      const doneCount = allTasks.filter(t => t.status === 'done').length;
+      project.progress = Math.round((doneCount / allTasks.length) * 100);
+    }
+    project.lastActivityDate = new Date();
+    await project.save();
+    await recalculateHealthScore(project._id);
+
+    res.status(201).json({
+      success: true,
+      data: newTask,
+      projectProgress: project.progress,
+      healthScore: project.healthScore
+    });
+  } catch (error) {
+    console.error('Error creating project task:', error);
+    res.status(500).json({ success: false, message: 'Failed to create task', error: error.message });
+  }
+};
+
+/**
+ * @route   PUT /api/projects/:id/tasks/:taskId
+ * @desc    Update task status/details and dynamically recalculate project progress & health
+ * @access  Public
+ */
+exports.updateProjectTask = async (req, res) => {
+  try {
+    const { id, taskId } = req.params;
+    const { status, title, description, priority, assigneeEmail } = req.body;
+
+    const project = await findProjectByIdOrCustomId(id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    let task;
+    if (taskId.match(/^[0-9a-fA-F]{24}$/)) {
+      task = await Task.findById(taskId);
+    } else {
+      task = await Task.findOne({
+        $or: [{ taskId: taskId.toUpperCase() }, { taskId }],
+        projectId: project._id
+      });
+    }
+
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    if (status) {
+      task.status = status;
+      if (status === 'done') {
+        task.completedAt = new Date();
+      }
+    }
+    if (title) task.title = title.trim();
+    if (description !== undefined) task.description = description.trim();
+    if (priority) task.priority = priority;
+    if (assigneeEmail !== undefined) task.assigneeEmail = assigneeEmail.trim().toLowerCase();
+
+    await task.save();
+
+    // Recalculate project progress dynamically
+    const allTasks = await Task.find({ projectId: project._id }).lean();
+    if (allTasks.length > 0) {
+      const doneCount = allTasks.filter(t => t.status === 'done').length;
+      project.progress = Math.round((doneCount / allTasks.length) * 100);
+    }
+    project.lastActivityDate = new Date();
+    await project.save();
+    await recalculateHealthScore(project._id);
+
+    res.status(200).json({
+      success: true,
+      data: task,
+      projectProgress: project.progress,
+      healthScore: project.healthScore
+    });
+  } catch (error) {
+    console.error('Error updating project task:', error);
+    res.status(500).json({ success: false, message: 'Failed to update task', error: error.message });
+  }
+};
+
+/**
+ * @route   DELETE /api/projects/:id/tasks/:taskId
+ * @desc    Delete a task and recalculate project progress & health
+ * @access  Public
+ */
+exports.deleteProjectTask = async (req, res) => {
+  try {
+    const { id, taskId } = req.params;
+    const project = await findProjectByIdOrCustomId(id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    if (taskId.match(/^[0-9a-fA-F]{24}$/)) {
+      await Task.findByIdAndDelete(taskId);
+    } else {
+      await Task.findOneAndDelete({
+        $or: [{ taskId: taskId.toUpperCase() }, { taskId }],
+        projectId: project._id
+      });
+    }
+
+    // Recalculate progress
+    const allTasks = await Task.find({ projectId: project._id }).lean();
+    if (allTasks.length > 0) {
+      const doneCount = allTasks.filter(t => t.status === 'done').length;
+      project.progress = Math.round((doneCount / allTasks.length) * 100);
+    } else {
+      project.progress = 0;
+    }
+    project.lastActivityDate = new Date();
+    await project.save();
+    await recalculateHealthScore(project._id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Task deleted successfully',
+      projectProgress: project.progress
+    });
+  } catch (error) {
+    console.error('Error deleting project task:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete task', error: error.message });
   }
 };
 

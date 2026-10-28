@@ -25,8 +25,10 @@ import {
   Cpu,
   Database,
   Wrench,
-  CheckCheck
+  CheckCheck,
+  Printer
 } from 'lucide-react';
+import OfficialHandoverDocumentModal from './OfficialHandoverDocumentModal';
 
 export default function HandoverDossierPage({
   project: initialProject,
@@ -39,6 +41,7 @@ export default function HandoverDossierPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStatus, setAnalysisStatus] = useState(null);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
 
   // Available projects open to handover from the backend database
   const [availableProjects, setAvailableProjects] = useState([]);
@@ -354,6 +357,29 @@ export default function HandoverDossierPage({
                 Configure Parameters
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setShowDocumentModal(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '7px 14px',
+                borderRadius: '8px',
+                border: '1px solid #CBD5E1',
+                backgroundColor: '#FFFFFF',
+                color: '#334155',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+              }}
+            >
+              <Printer className="w-3.5 h-3.5 text-blue-600" />
+              <span>Print Official Document (PDF)</span>
+            </button>
           </div>
         </div>
 
@@ -960,11 +986,51 @@ export default function HandoverDossierPage({
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <button
                   type="button"
-                  onClick={() => onLaunchContinuationWorkspace && onLaunchContinuationWorkspace(handoverData)}
+                  onClick={() => setShowDocumentModal(true)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '10px 16px',
+                    borderRadius: '10px',
+                    border: '1px solid #CBD5E1',
+                    backgroundColor: '#FFFFFF',
+                    color: '#334155',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <FileText className="w-4 h-4 text-slate-500" />
+                  <span>Download Handover Certificate</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={async () => {
+                    setIsSubmitting(true);
+                    try {
+                      if (onLaunchContinuationWorkspace) {
+                        await onLaunchContinuationWorkspace(handoverData);
+                      }
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  }}
                   className="pn-btn-launch-workspace"
                 >
-                  <Sparkles className="w-4 h-4 text-blue-100" />
-                  <span>Open v{handoverData.toVersion}.0 Continuation Workspace →</span>
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 text-blue-100 animate-spin" />
+                      <span>Provisioning v{handoverData.toVersion}.0 Continuation Workspace...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 text-blue-100" />
+                      <span>Open v{handoverData.toVersion}.0 Continuation Workspace →</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -1093,6 +1159,14 @@ export default function HandoverDossierPage({
         )}
 
       </div>
+      {/* Official Printable Handover Document Modal */}
+      <OfficialHandoverDocumentModal
+        isOpen={showDocumentModal}
+        onClose={() => setShowDocumentModal(false)}
+        project={currentProject}
+        handoverRecord={handoverData}
+      />
+
     </div>
   );
 }
